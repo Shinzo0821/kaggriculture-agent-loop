@@ -1,0 +1,50 @@
+{
+ "gen": "gen0049",
+ "parent": "gen0048",
+ "exp": "EXP0049",
+ "date": "2026-09-08",
+ "hypothesis": "イチゴ SW 波（rows 6-8 の 15 枚）の SW クアドラント購入を d11→d8、SW イチゴの from_day を 10→8 に型ごと同時前倒しすれば、植付完了が d9（LB #1 実測目標）に早まり、decay が d28-30 の低価格帯から d22-24 の高値帯へ移って早売り成分で +$6-8k を狙える。枚数は不変（26-27 枚。増枚は CLOSED）。全 seed で d8 以降の挙動が変わる（下振れ 0 ではない）。",
+ "source": "knowledge/analysis/2026-09-07_carrot-nonfiring-and-next-lever.md §2 Stage B ＋ knowledge/analysis/2026-09-08_stagea-preflight.md §2。IDEA_POLICY §1（土地購入日と作付け計画を型ごと同時移動。単独の日付 sweep ではなく骨格の位相そのものの前倒し）。",
+ "changes": [
+  "§B-1: land_target() の SW 購入分岐を `if day >= 11: return 3` → `if day >= 8: return 3` に前倒し。NE(day>=6→2)・SE/expansion(→4)・初期(→1) の分岐は不変。買いループの reconcile が現金不足なら自動で後日へ繰り延べる（発火は smoke で d8 実発生を確認）。",
+  "§B-2: CROP_PLANS[\"STRAWBERRY\"][\"tiles\"] のうち SW rows 6-8 の 15 枚 (x=0..4, y=6,7,8) だけ from_day 10→8。NE の (9,1,10)・MELON/WHEAT の SW タイル・早出し2 (0,3,4)(0,4,4) は触らない。枚数は不変。",
+  "§B-3(窓): windows は (4,13) を維持（変更なし）。設計案は (4,13)→(4,10) だったが、smoke で (4,10) は SW イチゴ植付が 13/14/14 枚に減り（窓を d10 で閉じると植え残す）、(4,13) は 15 枚（gen0048 と同数）を保ちつつ植付の山を d8-9 に前倒しできたため (4,13) を採用。",
+  "それ以外は 1 行も変えない（buy_cap 16・plant_pri 2.75・種購入・carrot/Stage A・hands・feed・売却・FIX 群すべて不変。種購入は plant_slots 追従で自動前倒し）。"
+ ],
+ "status": "SMOKE_OK_FIRING_PENDING_EVAL",
+ "smoke": "vs starter seed 7/14/42: エラー 0・両者 DONE。★FIRING: SW BUY_LAND が d8（全 seed。gen0048 は d11）で実発生＝Stage B 発火。SW イチゴ(rows 6-8) 植付=15 枚（gen0048 と同数）、植付日 d8-11（山は d8-9。gen0048 は d11-13）。イチゴ SELL は d19-24 が前倒しで厚くなった（seed7 d19/20/21=10/13/24 vs gen0048 5/5/17）。carrot(Stage A 継承)は d25-27 に発火し、むしろ増加（gen0049 18-21 枚 vs gen0048 7 枚。SW イチゴが早期 decay→WEED 化して carrot 転作対象が増えたため）。micro_audit --assert（seed 7/14/42）: unfed_days=0 / uncared_days=0 / noop_total=0（critical-three 全 OK）。他 micro NG 集合は gen0048 の部分集合＝FIX0013 強帯目標（--limit 対象）で新規回帰 0。tile_revisit_share は seed7/14 で NG→OK に改善、strawberry_yield は 1.629→1.65-1.89 に改善。profile max 0.02337s（<1.0 OK）。check_fixes applied 12/12・回帰 0・open 6（gen0048 と同一。FIX0008 carrot 部分適用で open のまま）。",
+ "smoke_money_caveat": "★要注意（設計判断の材料）: smoke の final_money は 3 seed とも gen0048 より低い（seed7 148829 vs 151122 / seed14 154555 vs 161368 / seed42 104742 vs 130253＝−$25k）。仮説は +$6-8k を予測したが smoke は逆方向。原因候補: 前倒しで SW イチゴが d23-24 に早期 decay→WEED 化し、gen0048 で d25-27 に取れていた高値帯のイチゴ産（$120）を失い、代わりに carrot($35)へ転作（carrot 7→18-21 枚）＝プレミアム品→低価格品への置換になっている疑い。イチゴ総売却量も seed7 で 180→167 に減。ただし ≤8 seed は動作確認専用（検出限界メモ）で方向判断は不可。24/50 seed eval が判定する。d9/d10 の現金は $437/$401（RESERVE=400 直上）まで落ちるが unfed=0・uncared=0 を維持。",
+ "leak_check": "d0-7 同一性。gen0048 の obs 軌跡（vs starter seed 7/14/42）を gen0048.agent と gen0049.agent の両方に流し farmer/hands/market を全ターン diff。総 diff 72/49/49 件、by_day seed7 {8:24,9:24,10:24}／seed14 {8:1,9:24,10:24}／seed42 {8:1,9:24,10:24}。**d0-7 は 3 seed とも diff=0**（first divergence は d8 h0＝SW 購入日。NE 購入 d6 まで含め d7 まで親とバイト同一）。設計どおり差は d8 以降のみ。",
+ "mechanisms": [
+  {
+   "name": "early_sw_strawberry_wave",
+   "since": "gen0049",
+   "what": "SW クアドラント購入日を d11→d8、SW イチゴ(rows 6-8 の 15 枚)の from_day を 10→8 に型ごと同時前倒し。land_target(day>=8→SW) と CROP_PLANS[STRAWBERRY].tiles の SW 15 枚 from_day を束ねて動かす（片方だけ動かすと土地無しで植えられない/土地だけ空く）。窓 (4,13) は不変（(4,10) だと植え残すため）。枚数不変。植付完了 d9（LB #1 実測目標）・decay を早めて早売り成分を作る。",
+   "constants": {"sw_land_day": 8, "sw_strawberry_from_day": 8, "sw_tiles_count": 15, "window": "(4,13)_unchanged", "prev_sw_land_day": 11, "prev_from_day": 10},
+   "origin": "observed",
+   "ablation": "records/eval_gen0048.json（この機構を外した版＝親 gen0048。SW 購入 d11・from_day 10・植付 d11-13）",
+   "why": "LB #1 両席の実測（SW 購入 d8・植付完了 d9）を取り込む。gen0048 の SW イチゴは d11-13 植付で decay が d28-30 の低価格帯に落ち $6-8k を取り逃していた（分析 §2 Stage B）。土地購入日と作付け計画を型ごと同時に動かすのは IDEA_POLICY §1 の合法レバー（数値 sweep ではなく骨格の位相前倒し）。★smoke では final_money が逆に低下したため方向は 24/50 seed eval で要確定。"
+  },
+  {
+   "name": "carrot_layer2_reclass",
+   "since": "gen0048",
+   "what": "gen0047 の fast_carrot_rotation を層2化して発火させる Stage A 修正。carrot 窓内の WEED-DIG（層3 2.6→層2 2.22）と PLANT（層4 2.82→層2 2.24）を『収量を作る行動』の経済クラス（イチゴ HARVEST と同層）に再分類。層2 内は DIG(2.22)<PLANT(2.24) で DIG が先導、両方>全 HARVEST(2.2) で収穫がタイで勝つ。他作物の DIG(2.6)/plant_pri は不変。gen0049 では SW イチゴ前倒しで decay 対象が増え carrot 転作 7→18-21 枚に増加。",
+   "constants": {"carrot_dig_pri": 2.22, "carrot_plant_pri": 2.24, "layer2_bounds": "[1.5, 2.25)", "harvest_hpri": 2.2, "other_crops_dig_pri": 2.6, "other_crops_plant_pri": "unchanged"},
+   "origin": "observed",
+   "ablation": "records/eval_gen0047.json（層3/4 で非発火の版＝親 gen0047。植付0）／carrot 機構ごと外すと gen0046",
+   "why": "gen0047 で carrot DIG/PLANT がイチゴ HARVEST のピークに starve され植付 0 に終わった。行動の層所属をゲームの経済クラス（収量を作る＝層2）で決め直すと IDLE hand-hour の中で DIG→PLANT が LAST_PLANT_HOUR 前に回る。IDEA_POLICY §4 の層所属の決め直し。"
+  },
+  {
+   "name": "fast_carrot_rotation",
+   "since": "gen0047",
+   "what": "4 産を終えて engine が WEED 化したイチゴタイル（STRAWBERRY 計画から早出し2枚を除いた 25 枚）だけを d24-27 に DIG→CARROT 化する。CROP_PLANS[CARROT]（窓 (24,27)・from_day 24・last_plant_day 27）＋ per-crop 植付期限の一般化＋種購入 carrot 追加＋収穫 carrot 分岐＋BONUS_WINDOW/MAX_YIELD。触るのは kind=WEED/None のタイルのみ。gen0048 の carrot_layer2_reclass で層2化して発火。",
+   "constants": {"window": "(24,27)", "last_plant_day": 27, "from_day": 24, "plant_pri": 2.24, "dig_pri": 2.22, "water_pri": 3.02, "seed_cost": 20, "buy_cap": 12, "tiles_count": 25, "BONUS_WINDOW": "(2,3)", "MAX_YIELD": 3},
+   "origin": "observed",
+   "ablation": "records/eval_gen0046.json（この機構を外した版＝gen0046。carrot 無し）",
+   "why": "LB #1 両席の実測（ep106191684/ep106190768: d24 開始・終盤自陣 WEED≈0）を取り込む。gen0048 の層2化で d24-27 の IDLE hand-hour に DIG→PLANT が回るようになった。"
+  }
+ ],
+ "mechanisms_doc": "gen0048 から継承した 7 機構（funded_wool_expansion・feed_buffer_lookahead_on_expansion・expansion_hands_bump・market_budget_reconcile・beta_harvest_unlock_gate・carrot_layer2_reclass・fast_carrot_rotation）のうち carrot 2 機構は上に写した（gen0049 では SW イチゴ前倒しにより carrot 転作が増加）。残り 5 機構は変更なし（台帳は gen0046/meta.json を参照）。gen0049 新規は early_sw_strawberry_wave 1 機構のみ。FIX0008 は carrot 部分適用のため台帳 open のまま。",
+ "candidate_sha256": "d11785613752f15db2ef8a11915513db17ad4d363503d39dec96b0ab6e3515b6",
+ "notes": "系譜: 現王者は gen0045（≡gen0046+FIX0018）。gen0049 はコード基盤 gen0048（Stage A carrot 発火版）のコピー＋3 点（SW 購入日 d8・SW イチゴ from_day 8・窓は (4,13) 維持）。SW 購入は smoke 全 seed で d8 に実発生し Stage B が発火した（現金不足によるずれは無かった）。★ただし smoke の final_money は 3 seed とも gen0048 より低下（前倒しでプレミアムなイチゴ晩期産が carrot 転作に置換された疑い）。仮説は +$6-8k を予測したが smoke は逆方向のため、24/50 seed eval が方向を確定するまで昇格判断は保留。eval は Supervisor がキューに積む（本世代からは submit/approve/commit しない）。Codex レビュー未実施（昇格判定は eval 後）。candidate_sha256 は現 main.py の値。"
+}

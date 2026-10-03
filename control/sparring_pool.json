@@ -1,0 +1,164 @@
+{
+ "_doc": "評価の相手プール(FR-2 v0.5)。rating は harness/rate_pool.py の総当たり Bradley-Terry(starter=0 アンカー, Elo尺度400)。プールを変えたら rate_pool.py --write と王者ベースライン(records/eval_<王者>.json)を取り直す。tier は目安: anchor_weak(情報なし側の錨) / own(自系統=旧王者) / mid(**勝敗が拮抗する帯**。2026-09-10 の指標監査で新設: 従来のプールは 1,100 戦で勝率が 0/100% 以外の相手が 1 体も無く、LB が実際に測っている量=勝敗の反転を測れていなかった。実戦でラダーを動かすのは相手レート 700-800 帯) / strong(公開Notebook上位型, $110-134k)。**プールに自系統を入れたので、その世代自身を候補にすると evaluate.py が自己対戦を除外する(ミラー戦はゲートを歪める)**。候補が strong 帯に届くまでは、細かい差は gate.money_delta_paired と slope_delta で読む(勝率は 0/100% に張り付いて情報が薄いため)。agents/sparring/ はスパーリング専用・提出禁止・丸写し禁止。",
+ "opponents": [
+  {
+   "name": "starter",
+   "path": "starter",
+   "tier": "anchor_weak",
+   "enabled": true,
+   "rating": 0.0,
+   "rated_games": 288
+  },
+  {
+   "name": "georgy",
+   "path": "agents/sparring/georgy/main.py",
+   "tier": "weak",
+   "enabled": true,
+   "rating": 285.6,
+   "rated_games": 288
+  },
+  {
+   "name": "gen0003",
+   "path": "agents/gen0003/main.py",
+   "tier": "own",
+   "enabled": false,
+   "rating": 579.6,
+   "rated_games": 216,
+   "why_disabled": "プール改編 2026-09-05: 自系統 3→1（ミラー戦バイアスの縮小）／強帯 5→8（上位10% への解像度）"
+  },
+  {
+   "name": "gen0013",
+   "path": "agents/gen0013/main.py",
+   "tier": "own",
+   "enabled": false,
+   "rating": 869.1,
+   "rated_games": 216,
+   "why_disabled": "プール改編 2026-09-05: 自系統 3→1（ミラー戦バイアスの縮小）／強帯 5→8（上位10% への解像度）"
+  },
+  {
+   "name": "gen0018",
+   "path": "agents/gen0018/main.py",
+   "tier": "own",
+   "enabled": false,
+   "rating": 550.0,
+   "rated_games": 240,
+   "why_disabled": "プール改編 2026-09-09: 中間帯の新設（2026-09-10 指標監査）: 勝率 0/100% しかないプールではmargin は測れても win の反転が測れず、LB の目的関数と対象がずれていた"
+  },
+  {
+   "name": "tetsutani_adaptive",
+   "path": "agents/sparring/tetsutani_adaptive/main.py",
+   "tier": "strong",
+   "enabled": true,
+   "rating": 1088.0,
+   "rated_games": 288
+  },
+  {
+   "name": "prvsiyan_v189c",
+   "path": "agents/sparring/prvsiyan_v189c/main.py",
+   "tier": "strong",
+   "enabled": true,
+   "rating": 1316.0,
+   "rated_games": 288
+  },
+  {
+   "name": "rayk_c95",
+   "path": "agents/sparring/rayk_c95/main.py",
+   "tier": "strong",
+   "enabled": true,
+   "rating": 907.6,
+   "rated_games": 288
+  },
+  {
+   "name": "boatlee_v16",
+   "path": "agents/sparring/boatlee_v16/main.py",
+   "tier": "strong",
+   "enabled": true,
+   "rating": 1023.9,
+   "rated_games": 288
+  },
+  {
+   "name": "kaito_v48",
+   "path": "agents/sparring/kaito_v48/main.py",
+   "tier": "strong",
+   "enabled": true,
+   "rating": 1340.5,
+   "rated_games": 288
+  },
+  {
+   "name": "boatlee_v29",
+   "path": "agents/sparring/boatlee_v29/main.py",
+   "tier": "strong",
+   "enabled": true,
+   "rating": 1676.5,
+   "rated_games": 288
+  },
+  {
+   "name": "sokolovsky",
+   "path": "agents/sparring/sokolovsky/main.py",
+   "tier": "strong",
+   "enabled": true,
+   "rating": 1220.7,
+   "rated_games": 288
+  },
+  {
+   "name": "pilkwang",
+   "path": "agents/sparring/pilkwang/main.py",
+   "tier": "strong",
+   "enabled": true,
+   "rating": 1534.7,
+   "rated_games": 288
+  },
+  {
+   "name": "dmitriigluzdov_7turn",
+   "path": "agents/sparring/dmitriigluzdov_7turn/main.py",
+   "tier": "strong",
+   "enabled": true,
+   "why_added": "2026-09-19: 実勢の公開 SOTA を強帯に入れる（route-lookup B 系譜・LB 1561-1934）。既存強帯の天井は我々の系譜と同じ LB ~750 帯で、上位10%(2397)への proxy が無かった。Apache-2.0・スパーリング専用・提出禁止・丸写し禁止。actions.json(5.1MB, sha256 17d503f2…5495ef) は .gitignore 済みなのでローカル実体が必須。同系譜の yhay81_router(親)は同じテープ 2 体で強帯の重み付けが歪むので入れない。",
+   "rating": 2016.8,
+   "rated_games": 288
+  },
+  {
+   "name": "yhay81_router",
+   "path": "agents/sparring/yhay81_router/main.py",
+   "tier": "strong",
+   "enabled": false,
+   "why_disabled": "macOS arm64 専用 dylib + 一時ファイルI/O。環境依存のため既定は無効"
+  },
+  {
+   "name": "gen0044",
+   "path": "agents/gen0044/main.py",
+   "tier": "mid",
+   "enabled": true,
+   "why_added": "2026-09-10 指標監査: 中間帯の候補。H2 売り時burst。中間帯: 王者 gen0048 の勝率 54.2%（別 seed_base でも 54.2%＝最も安定）",
+   "rating": 586.7,
+   "rated_games": 288
+  },
+  {
+   "name": "gen0045",
+   "path": "agents/gen0045/main.py",
+   "tier": "mid",
+   "enabled": true,
+   "why_added": "2026-09-10 指標監査: 中間帯の候補。funded wool。中間帯: 王者 gen0048 の勝率 52.1% / 45.8%",
+   "rating": 586.7,
+   "rated_games": 288
+  },
+  {
+   "name": "gen0051",
+   "path": "agents/gen0051/main.py",
+   "tier": "mid",
+   "enabled": false,
+   "why_added": "2026-09-10 指標監査: 中間帯の候補。Stage B 合成。やや強め: 王者 gen0048 の勝率 37.5% / 18.8%（24 シードでは推定が 19pt ぶれる）",
+   "rating": 762.3,
+   "rated_games": 288,
+   "why_disabled": "プール改編 2026-09-10: 王者 gen0051 の二重籍を解消（案 2・恒久規約「王者はプールに入れない」）: 自己対戦除外による 12/13 の非対称と rating_delta の甘さを消す"
+  }
+ ],
+ "rated_at": "2026-09-19T01:29:02+0900",
+ "rated_seeds": 12,
+ "rated_seed_base": 5000,
+ "_reformed_at": "2026-09-18T16:09:21+00:00",
+ "_reform_note": "強帯の上端を実勢の公開 SOTA まで引き上げる（2026-09-19）: 既存強帯 8 体は LB 720-760 帯で上位10%(2397)への proxy になっていなかった",
+ "rated_steps": 720,
+ "rated_prior": 0.5,
+ "rated_extra": []
+}

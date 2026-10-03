@@ -1,0 +1,47 @@
+{
+  "kaggle_daily_limit": 5,
+  "auto_daily_cap": 3,
+  "auto_nightly_min": 0,
+  "exploration_end_utc": "2026-09-24",
+  "submit_gate": {
+    "max_error_games": 0,
+    "rating_delta_min": -100,
+    "min_rated_opponents": 3,
+    "_legacy": {
+      "starter_min": 0.95,
+      "champion_min": 0.3
+    }
+  },
+  "promotion_gate": {
+    "rule": "paired MARGIN delta 95%CI lower bound > 0（evaluate.py gate.pass）。マージン = cand_final − opp_final（勝敗の定義）。**rating_delta >= 0 は 2026-09-10 に条件付きになった**: プールの全相手の勝率が 0/100% に張り付いていると rating は候補を変えても動かず空チェックになるため（gen0024 以降 9 世代連続 631.6）、**勝敗が拮抗する相手が 1 体でも居るときだけ課す**（evaluate.py が gate.rating_informative に記録）。2026-09-10 のプール改編で中間帯 tier=mid を入れたので現在は課されている。2026-09-05 に (a) rating_delta を > 0 から >= 0 に、(b) 資金基準を『自分の資金』から『マージン』に変更。理由は knowledge/analysis/2026-09-05_pool-bimodality.md と 2026-09-05_denial-vs-production.md、条件付き化の理由は 2026-09-10_metric-audit.md。**未解決の論点**: rating が情報を持つようになったので、ゲートを『マージン CI 下限 > 0 **または** rating_delta の CI 下限 > 0』に広げるか（control/DIRECTIVES.md 未処理）。gen0051 は rating で 4σ・マージンで検出不能だったため人が上書きして昇格させた。",
+    "_legacy": {
+      "starter_min": 0.95,
+      "champion_min": 0.55
+    }
+  },
+  "max_cycles_per_night": 8,
+  "note": "v0.5 (2026-09-04): ゲートを自系統H2Hから『相手プール(control/sparring_pool.json)に対するレーティング』へ変更。提出は価値がある時だけ(毎晩の本数ノルマ廃止: auto_nightly_min=0)。最終評価は最新2提出のみなので、ノイズ級の世代で枠を埋めない。exploration_end_utc 以降は自動提出を全停止し、最終2本はユーザーと相談して選定。auto_daily_cap は [auto] 提出の上限/日(UTC)。 2026-09-05(ワークフレーム改善 P1/P2): 提出理由の2段階化(submit_reasons)、too_good_flag、static_check、post_submit_verify を追加。",
+  "too_good_flag": {
+    "_doc": "計画 §2-B: 『良すぎる』評価は測り方の事故を疑う。閾値超えで gate.too_good が立ち、preflight は --recheck <別 seed-base の再評価JSON> を要求する（昇格前に audit_replay と Codex レビューも必須）。money は自分の資金、margin は 自分 − 相手。**両方見る**: 自分の資金だけ跳ねる型も、マージンだけ跳ねる型も、どちらも測り方の事故を疑う。",
+    "rating_delta_max": 150,
+    "money_delta_mean_max": 8000,
+    "margin_delta_mean_max": 16000,
+    "_margin_derivation": "マージン = 自分の増加 + 相手の減少。片側の疑い水準が money_delta_mean_max = $8,000 なので、両側そろって疑わしい水準としてその 2 倍を置く。当てにいった値ではなく money 側からの導出。"
+  },
+  "static_check": {
+    "_doc": "計画 §7-A: 提出物 main.py の AST 検査（ops/static_check.py）。allowed_nonstdlib は本番環境に存在し意図して使うモジュールのみ足す（既定は空＝標準ライブラリのみ）。",
+    "allowed_nonstdlib": []
+  },
+  "submit_reasons": {
+    "_doc": "計画 §3-A: 提出理由は promote(昇格=自動提出可) と measure(別の型の LB 計測=人の承認制)の2種類。measure は control/submit_queue.jsonl に積まれ、ops/approve_submit.py <gen> で人が承認して初めて提出される。",
+    "promote_requires_review_record": true,
+    "queue_file": "control/submit_queue.jsonl",
+    "queue_ttl_days": 3
+  },
+  "post_submit_verify": {
+    "_doc": "計画 §7-B: ops/verify_submission.py の合格条件。提出後の実エピソードとローカル eval 分布の一致検査。",
+    "min_episodes": 20,
+    "money_ratio_min": 0.7,
+    "max_error_rate": 0.0
+  }
+}

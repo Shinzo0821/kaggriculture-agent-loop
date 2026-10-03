@@ -1,0 +1,17 @@
+{
+  "generation": "gen0007",
+  "parent": "gen0006",
+  "lineage": "gen0005",
+  "track": "A×B merge",
+  "date": "2026-08-31",
+  "hypothesis": "gen0006(真のトリクル売り, 保有全世代でH2H最強)の実LB経済は $58-69k で、上位 $74-99k との差はメロン等の終盤の高付加価値レバーに集約される(EXP0005/回収リプレイ)。gen0005 で lean メロン単体は H2H で王者に届かなかった(43.3%)が median を下げつつ頭を伸ばす高分散改善。最強ベース gen0006 に lean メロンを接げば、H2H を大きく落とさず LB 上位帯に手が届く可能性が出る",
+  "changes": [
+    "gen0006 をベースに gen0005 の lean メロン機構をそのまま接ぐ(唯一の変更)",
+    "MELON_TILES = NW 空き7タイル(ANIMAL/WHEAT タイルと排他 → 中核を奪わない)",
+    "メロン植付/種購入を MELON_START_DAY=8〜MELON_PLANT_LAST=18 に限定、MELON_CASH_BUFFER=$2000 を残す",
+    "メロン水やりは本業より低優先度(pri 3.2 / 枯死防止1.05)、収穫は高優先度(1.9)",
+    "gen0006 のトリクル売り・構造物空き確認・overflow 判定は一切変更せず"
+  ],
+  "eval": "records/eval_gen0007.json",
+  "experiment": "knowledge/experiments/EXP0007_merge-trickle-melon.md"
+}

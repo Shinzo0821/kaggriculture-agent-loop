@@ -1,0 +1,93 @@
+{
+  "gen": "gen0059",
+  "parent": "gen0051",
+  "date": "2026-09-19",
+  "exp": "EXP0059",
+  "hypothesis": "律速は『何を植えるか』ではなく『労働をいくらで買うか』(EXP0038/0053/0057 の 3 点)。gen0058 が『捨てている歩行を拾う』側だったのに対し、本世代は『遊んでいる時間を仕事に変える』側。実測(knowledge/analysis/2026-09-19_move-budget-decomposition.md §3/§5)で、王者の farmer は 719 unit-hour の 60% (431 h) を PASS し生産行動は 30 日で 58 回だけ(実勢 SOTA の 7turn は PASS 8% / 382 回)。原因はコードから一意に特定できる: farmer は zid=-1 でゾーンの外に置かれ、(a) ゾーン所有の todo はグローバル fallback の _owner_can_come が弾き、(b) FEED/CARE の最寄り判定からも FIX0005 で自ら降りるので、朝のシェッド遊撃が終わると構造的に取れる仕事が無い。farmer に区画を 1 つ持たせて所有者にすれば、PASS の一部が仕事に変わる。PASS 全体(1,299 h)のうち farmer 分 431 h を対象にした変更で、hands 側の 868 h(所有権の解除規則)は gen0060 に分ける。",
+  "mechanisms": [
+    {
+      "name": "farmer_zone",
+      "since": "gen0059",
+      "what": "farmer もゾーン割当の一員にする。(1) `n_zones` を +1（旧: max(n_hands, hands_target, 1)）。(2) farmer が持つ区画は**シェッドからの最短距離が最小の区画**（farmer だけがシェッド遊撃を持ち続けるので、その往復が最短になる区画が最も安い。同距離なら小さい番号）。hands は残りの区画を従来と同じ空間順で受け取る（hand i → hand_zone[i]）。(3) `zid = unit_zid[ui]`（旧: `ui - 1`）。(4) `_owner_can_come` の所有者位置を `zone_pos[]` から引く（所有者は hand だけでなく farmer もありうる。旧 `owner >= len(hand_pos)` = 未雇用判定は `zone_pos[owner] is None` に置換）。(5) FEED/CARE の最寄り判定の `zi` も `unit_zid[i]` から引く。(6) **シェッド遊撃（動物 PICKUP = need 'SHEDOP' と、その対の PLACE）は farmer の自ゾーン枠でも拾える例外**として保つ。(7) farmer のシェッド遊撃は `crit = 0`（LOSS_PRIS と同じ『距離より先』の階級）に入れる。(8) farmer の小麦一括 PICKUP(ZWHEAT) だけ `hour >= 2` を課す。(9) 雇用不能時（n_hands == 0 かつ h>=2）に farmer が盤面全体の給餌役になる防御路は維持。 (7) は **Codex レビュー P1-1 で 3 段に改めた**: `crit = 0 if pri in LOSS_PRIS else (1 if farmer_shed else 2)`（0=資産が今夜失われる仕事 / 1=farmer のシェッド遊撃 / 2=通常）。hands には `farmer_shed` が立たないので crit は {0, 2} ＝層内の順序は親と同一。",
+      "constants": {
+        "n_zones": "max(n_hands, hands_target(day, expand)) + 1（+1 は『farmer も 1 体のユニットである』というエンジンの事実。調整可能な閾値ではない。親の `, 1` は `+1` があると冗長で hands_target=0 の日に幽霊ゾーンを作る off-by-one なので外した = Codex P1-3）",
+        "farmer の区画": "min(zone) over（シェッドからの最短距離）。盤面の関数で、定数を新設しない",
+        "ZWHEAT の hour >= 2": "旧コードが farmer の給餌路に既に課していた条件をそのまま流用（新規定数なし）"
+      },
+      "origin": "derived（エンジンの unit は farmer 1 + hands N で、farmer も 1 unit-hour/turn を持つ。PASS の実測は move-budget-decomposition.md §3/§5）",
+      "ablation": "records/eval_gen0051.json（親＝farmer がゾーンを持たない版）。同一シードの行動会計が直接の対照（下の measured）。",
+      "why": "IDEA_POLICY §4『労働割当の構造変更』。新しい閾値・定数を導入せず、総仕事量も増やさない（区画本数が 1 増えるので各 hand の区画は小さくなる）。**遊んでいた 1 体分の時間だけが仕事に変わる**変更。増員（−$8,656 で棄却）とは別物で、unit-hour の総量は 1 時間も増えない。",
+      "measured": "vs starter 3 seed（決定論的な行動会計。資金の判断には使わない）。**レビュー修正後の値**。seed 5000: PASS **1320→1045 (−275)** / 生産行動 2599→2670 (+71) / MOVE 3243→3447 (+204)。seed 42: PASS **1184→1054 (−130)** / 生産行動 2614→2662 (+48) / MOVE 3364→3446 (+82)。動物 12 頭への到達は d8（親）→ **d9**（1 日遅い。crit を 2 段にすれば d8 に戻るが、それは枯死防止 WATER を追い越す＝ P1-1 の欠陥そのもの）。seed 7 は店抽選が分岐して総 unit-hour が変わるので対照にならない。**PASS の減少分のうち仕事に変わったのは 1/4〜2/5 で、残りは MOVE（farmer が自区画へ通う分）に化けた。**会計上限（+870 生産行動）の 6-8% しか取れていない＝**期待値は正直に小さく、検出不能の公算がある。**",
+      "caveat": "**店抽選（unlocked_shops）は行動で分岐する。** seed 7 では王者が YARN_STORE 2 軒を引いて羊拡張（16 頭・最終 $149k）が発火したのに対し、本世代は d6 の抽選が FARMERS_MARKET になり yarn=0 で非発火（12 頭・$115k）＝**スモークの資金差 −$34k は品質差ではなく抽選差**（`knowledge/analysis/2026-09-13_shop-conditional-premeasure.md` と同じ現象）。この分散が 50 シードの対応付き評価でも残るので、CI は広く出る見込み。"
+    }
+  ],
+  "gauntlet": {
+    "critical_three": "3 seed とも noop_total / unfed_days / uncared_days 全 0（レビュー修正後も維持）",
+    "micro_ng": "6 件（inplace_share / last_water_hour / melon_yield / strawberry_yield / tile_util / wheat_yield）・親 gen0051 と同一集合（新規回帰 0）。moves3plus_share は 0.123-0.131 → 0.151-0.156 に悪化したが基準 0.16 内（farmer が自区画へ通う分）",
+    "check_fixes": "applied 14/14・回帰 0",
+    "static_check": "OK",
+    "profile": "mean 0.00021s / max 0.00913s（ok_mean_lt_0.1 / ok_max_lt_1.0 とも true）",
+    "design_iterations": "3 版を測って選んだ。(v1) 区画を持たせるだけ → **動物が 8 頭で止まり**最終資金 3 seed で $101.8k / $101.6k / $103.9k（親は $140.8k / $149.3k / $103.8k）。原因: PLACE の todo は自ゾーン外のパスチャに立つので、**farmer が自ゾーンに仕事を見つけた時点でグローバル枠に降りず、PICKUP した動物を置く先へ永久に行けない**（d0 に羊 3 頭を抱えて植付に出る）。→ (v2) PLACE も自ゾーン枠の例外に入れる → 動物 12 頭に復帰・$150.3k / $115.1k / $119.3k。→ (v3=採用) さらにシェッド遊撃を crit 0 に。crit を直さない版（v2）は枯死防止 WATER(pri 1.0, crit 0)に必ず負けて設置が 1 日遅れ（動物 12 頭到達が d8→d9）、$90.4k / $97.7k / $115.6k。**crit 0 は新しい優先度ではなく、旧コードの `eff = min(pri, 0.85)`（＝『緊急FEED/ZWHEAT の次』）が宣言していた設計意図の実装**。旧世代でこの穴が表に出なかったのは farmer が zone_only を走らなかったから。 → **(v4=最終・Codex レビュー P1-1 の反映) crit を 2 段（LOSS_PRIS と同じ 0）から 3 段（0=LOSS_PRIS / 1=farmer のシェッド遊撃 / 2=通常）に改めた。** v3 の 2 段は `key=(lay, crit, d, eff)` の `d` が `eff` より先に 比較されるので**1 歩先の PLACE が今夜枯れる作物の WATER に勝つ**（Codex が合成観測で再現）。しかも farmer の区画は `zone_pos[owner]` が常に非 None なので、その WATER は通常時間帯に他の hand の救済からも漏れる。3 段にすると意図（シェッド遊撃を通常の仕事より前に）だけが残る。代償は動物 12 頭への到達が d8 → d9 に 1 日遅れること。"
+  },
+  "candidate_sha256": "3d25ae1da781ce2da53b71779c31bfcc6f42f2f1aaadff3a17cbd03d3ad68d43",
+  "review": {
+    "date": "2026-09-18",
+    "reviewer": "codex",
+    "model": "gpt-5.6-sol / reasoning high",
+    "thread": "<redacted-id>",
+    "candidate_sha256": "3d25ae1da781ce2da53b71779c31bfcc6f42f2f1aaadff3a17cbd03d3ad68d43",
+    "checklist": "knowledge/REVIEW_CHECKLIST.md",
+    "diff_range": "agents/gen0051/main.py..agents/gen0059/main.py",
+    "note": "P0 ゼロ。Codex は添字系列（n_zones / farmer_zone / hand_zone / unit_zid / zone_pos）の IndexError を n_hands=0・hands_target=0・土地 1 枚・zone_of 空・group 数超過で直接呼び出して再現せず、新規計算が eval_todos の外にあること（100 動物・15 hands の合成観測で平均 0.003s）、ZWHEAT/ZFERT の予約が farmer の分で二重化しないこと、FIX0005 の穴が再発していないこと、zone_only の farmer_shed 例外が既存救済条件を壊していないことも個別に検証している。**レビュー後に main.py を 3 箇所変えたので SHA は修正後のもの**（この review はその修正後のコードに対する記録）。",
+    "findings": [
+      {
+        "severity": "major",
+        "what": "crit を LOSS_PRIS と同じ 0 にしたので、farmer のシェッド遊撃が枯死防止 WATER(pri 1.0) と同層・同 crit になり、`key=(lay, crit, d, eff)` の `d` が `eff` より先に比較される＝**1 歩先の PLACE が今夜枯れる作物の WATER に勝つ**（Codex が合成観測で再現: 北 4 歩に consecutive_unwatered=1 の小麦・西 1 歩に PLACE 先 → farmer は WEST を返す）。さらに farmer の区画は `zone_pos[owner]` が常に非 None なので、その WATER は通常時間帯に他の hand の救済からも漏れる。連続 unfed の緊急給餌(pri 0.0, 層 0)より先に出ることは無い（Codex が同じ方法で確認）",
+        "resolution": "fixed",
+        "how": "crit を 3 段にした: `0 if pri in LOSS_PRIS else (1 if farmer_shed else 2)`。hands には farmer_shed が立たないので crit は {0,2} ＝層内の順序は親と同一。代償は動物 12 頭への到達が d8 → d9 に 1 日遅れること（資産喪失の risk より安い）"
+      },
+      {
+        "severity": "minor",
+        "what": "最終日 h21 に COLLECT_FERTILIZER を実行すると、h22 はシェッドへの MOVE になり DROP の手番が無く肥料 1 個が死蔵（FIX0011 は h>=22 の COLLECT だけを止めている）。gen0059 の 3 スモークは farmer が {'FERTILIZER': 1} を抱えて終局",
+        "resolution": "deferred",
+        "ledger": "FIX0028",
+        "note": "**Codex の attribution は誤り。** 「親 gen0051 は farmer inventory が空」は farmer スロットだけを見た結論で、親も同じ 1 個を hand（index 6 / 1）が抱えて終局している＝ gen0059 の回帰ではなく系譜の性質。指摘の中身（h21 の COLLECT が換金に間に合わない）は正しいので FIX0028 として台帳へ。gen0059 の機構と無関係な終盤清算の穴なので、ここで直すと効果の帰属が割れる"
+      },
+      {
+        "severity": "minor",
+        "what": "`n_zones = max(n_hands, hands_target, 1) + 1` の `, 1` は `+1` があると冗長で、hands_target が 0 を返す日には所有者不在の幽霊ゾーンを 1 本作る off-by-one になる（現行の hands_target は最小 4 なので今日の 30 日では不発）",
+        "resolution": "fixed",
+        "how": "`max(n_hands, hands_target(day, expand)) + 1` に変更。現行スケジュールでは挙動不変（hands_target >= 4）"
+      },
+      {
+        "severity": "minor",
+        "what": "`zone_of` のコメント「zone i = hand i の担当」が旧設計のまま（新設計では farmer_zone を除いた hand_zone[i] が hand i の担当）",
+        "resolution": "fixed",
+        "how": "コメントを「値は zone index。所有者との対応は unit_zid / zone_pos で付ける」に直した"
+      }
+    ],
+    "blocking_resolved": true
+  },
+  "eval": {
+    "file": "records/eval_gen0059.json",
+    "backup": "records/eval_gen0059_vs_gen0051.json",
+    "pool_sha256": "e3f965925ea35cea3dbbf4eb0c01b81170a5903f23d6891534397743092d70b7",
+    "baseline": "records/eval_gen0051.json（**旧**王者。現王者は gen0058）",
+    "seeds": 50,
+    "games": 1300,
+    "errors": 0,
+    "pass": true,
+    "pass_route": "margin",
+    "too_good": null,
+    "margin_delta_paired": "+2690.1 [+1848.4, +3531.8]",
+    "strong_margin_delta_paired": "+3667.2 [+2594.8, +4739.5]",
+    "money_delta_paired": "+973.3 [-3395.3, +5341.9]",
+    "slope_delta": 205.1,
+    "rating_delta": "+53.1 [+5.3, +100.9]（rating_informative・CI 下限 > 0）",
+    "pool_rating": "696.8 ± 17.1（gen0058: 661.1 ± 17.3 ／ gen0051: 643.7 ± 17.4）",
+    "win_rate": 0.29,
+    "strong_win_rate": 0.0044,
+    "note": "**事前の見積り「変換効率 8% ＝ 検出不能の公算」は外れた**（gen0058 に続き 2 回連続）。強帯マージンは gen0058 の 2 倍で、**rating 経路でも通る初めての世代**。⚠ **baseline が旧王者 gen0051 なのでこれだけでは王者交代の根拠にならない。** gen0058 比の対応付き再評価を投入済み（20260918_190957 → records/eval_gen0059_vs_gen0058.json）。"
+  },
+  "exp_file": "knowledge/experiments/EXP0059_farmer-zone.md"
+}

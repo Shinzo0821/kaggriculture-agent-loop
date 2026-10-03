@@ -1,0 +1,10 @@
+{
+  "generation": "gen0002",
+  "parent": "gen0001",
+  "track": "B",
+  "phase": 1,
+  "hypothesis": "動物経済(牛6+羊2+鶏2)は行動単価が作物の3-5倍。町需要でミルク/ウール価格は上昇し続けるため、早期全力投資+FEED/CARE完全遵守で gen0001 の2倍超を狙う。土地は買わない($44k相手の実証に倣う)",
+  "exp": "EXP0002",
+  "evidence": "knowledge/analysis/2026-08-30_top-opponent-cow-economy.md",
+  "created": "2026-08-30"
+}

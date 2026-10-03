@@ -1,0 +1,14 @@
+{
+  "generation": "gen0010",
+  "parent": "gen0008",
+  "track": "A",
+  "date": "2026-09-03",
+  "hypothesis": "EXP0009 アブレーション(5シード diff vs gen0008): tomato+8h=-4764 / 8h・トマト無=+985 / 6h・トマト無=+543。純負の原因はトマト(共有労働を base$60 に食われ動物中核の被覆が薄れる)で、作物を外し『中核に手を足すだけ』なら微プラスだった。gen0010 は単一変数(=資金化後の増員のみ、作物なし)でこの副産物リードを30シードで検証する。追加の手は CARE/収穫/水やり/給餌/肥料回収の被覆を上げ中核動物経済の取りこぼしを減らす方向にのみ働く",
+  "changes": [
+    "資金化ゲート scaling = day>=SCALE_DAY(12) かつ money>=SCALE_CASH(6000)",
+    "増員: scaling 時 TARGET_HANDS 4→SCALE_HANDS 8。割ったら 4 に戻す(新規雇用停止。既存 hand は解雇しない)",
+    "作物増設なし・土地購入なし。gen0008 のタイル配置・売却・購入ロジックは完全に不変(差分は scaling 時の hand 数のみ)"
+  ],
+  "eval": "records/eval_gen0010.json",
+  "experiment": "knowledge/experiments/EXP0010_scale-hands-only.md"
+}

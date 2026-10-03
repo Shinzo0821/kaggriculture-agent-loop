@@ -1,0 +1,13 @@
+{
+  "generation": "gen0011",
+  "parent": "gen0010",
+  "track": "A",
+  "date": "2026-09-03",
+  "hypothesis": "gen0010 が資金化後の増員のみ(作物なし) 4→8hands で王者化(vs gen0008 75%/30シード)したが、SCALE_HANDS=8 は EXP0009 の5シードアブレ(8h=+985>6h=+543)由来で 8 が上限とは未確認。hire は fib(n) で 9人目は +$34/日(day12-29 で最大~$600)。作業対象は動物10+小麦8=18タイル＋シェッドで有限なので、9人目の限界被覆価値が追加コストを上回るかを単一変数(SCALE_HANDS 8→9)で検証。6h<8h(アブレ)が既知なので 9h<8h なら 8 が単峰の頂点として確定",
+  "changes": [
+    "SCALE_HANDS 8→9(gen0010 との差分はこの1点のみ)。資金化後(day>=12 & money>=6000)の増員先を1つ上げる",
+    "タイル配置・売却・購入・作物・土地ロジックは gen0010 から完全に不変"
+  ],
+  "eval": "records/eval_gen0011.json",
+  "experiment": "knowledge/experiments/EXP0011_scale-hands-9.md"
+}

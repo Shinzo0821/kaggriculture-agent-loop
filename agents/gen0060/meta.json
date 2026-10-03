@@ -1,0 +1,107 @@
+{
+  "gen": "gen0060",
+  "parent": "gen0058",
+  "date": "2026-09-19",
+  "exp": "EXP0060",
+  "hypothesis": "`knowledge/analysis/2026-09-19_move-budget-decomposition.md` §5 の実測: 我々の PASS の 96-100% で『他ユニットが手を付けていない仕事』が 3 歩以内に在り（45% は足元）、d11-d20 の PASS 近傍の空き仕事の 49% は同日に別ユニットが実行している ＝ **片方の PASS ともう片方の MOVE が同時に立っている。弾いているのは距離ではなく所有権。** 親 gen0058 の `_owner_can_come` は『所有者が今日その1タイルへ来られるか（距離+1 ≤ 残り時間）』しか見ないので、所有者が自ゾーンに 12 件抱えていて 3 件しか片付かない日でも 12 件すべてを保護する。保護を『所有者が今日ほんとうに回りきれる分』に狭めれば、残りは今日どうせ落ちる仕事なので暇なユニットへ回る（対象量 = hands の PASS 868 unit-hour）。",
+  "mechanisms": [
+    {
+      "name": "backlog_ownership_release",
+      "since": "gen0060",
+      "what": "1 ターン 1 回、各ゾーンについて『所有者が現在位置から**自分の順位規則どおりに**自ゾーンの todo を巡回したとき、今日の残り時間に実際に入る集合』を前計算する（`_zone_backlog_doable`）。`_owner_can_come` は従来の距離条件に加えてこの集合への所属を要求する ＝ 入らなかった分だけが他ユニットへ解放される。順位は `_rank()` が `eval_todos` の `key = (lay, crit, d, eff)` を再現する（VISIT_LAYER・crit・挿入順タイブレーク込み。farmer 役割バイアスは farmer 専用なので除く）。所有者の在庫・種数で今は実行できない todo は巡回から除く。各反復は**残り予算に入る候補だけ**から選ぶ。最終日（`day >= FINAL_DAY`）は `None` を返し、親 gen0058 と同一挙動に戻す。",
+      "constants": {
+        "式": "累積 Σ(d_i + 1) ≤ HOURS_PER_DAY - hour（親 gen0058 のゲートと同じ式の累積版）",
+        "新規定数": "0 件（移動1タイル=1時間・行動=1時間・1日24時間というエンジン規則だけで決まる）"
+      },
+      "origin": "derived（`move-budget-decomposition.md` §5 + §7-A(ii)）",
+      "ablation": "records/eval_gen0058.json（親＝王者。同一プール e3f96592・50 シード）",
+      "why": "IDEA_POLICY §4『労働割当の構造変更』。**全部解放しない**のは gen0026-2 が塞いだ『グローバル fallback が所有者の仕事を先取りする』穴を戻さないため。**「所有者の仕事は 1 件も減らない」という強い主張は成立しない**（Codex gen0060#0）: 保証できるのは『巡回の先頭 = 所有者が今ターン選ぶ仕事』で、それも `planned_seed` / `claimed` の動的変化を追わない**ターン開始時点の静的近似**。貪欲巡回は最短巡回ではないので所要時間を過大に見積もりうる ＝ **誤差の向きは「解放しすぎ」側。**",
+      "measured": "vs starter 3 seed（決定論的な行動会計。資金の判断には使わない）。seed 42 / 123 は総 unit-hour が親と同じ 7,162 なので直接比較できる: **PASS 1555→1026 / 1593→1094**（−529 / −499）・**生産行動 2666→2812 / 2620→2795**（+146 / +175）＝ **PASS が仕事に変わる効率 28% / 35%**（レビュー前の版は 15-16% だった＝**Codex の指摘 3 件を直したことで倍以上になった**）。MOVE 2941→3324 / 2949→3273。hop/work 1.10→1.18 / 1.13→1.17（実勢 SOTA 0.81 からは遠ざかる）。`tile_util` は 3 seed とも改善（0.619→0.728 / 0.693→0.724 / 0.681→0.717）。seed 7 は店抽選が分岐して総 unit-hour が 7,485→7,162 に変わったので会計の比較対象から外した。"
+    },
+    {
+      "name": "fix0030_gate_crit_water",
+      "since": "gen0060",
+      "what": "FIX0030（major・親 gen0058 のレビュー指摘）: 到達可能性ゲートの carve-out を `pri not in LOSS_PRIS` から `not (pri == 0.0 and op[0] == \"FEED\")` に狭め、**枯死防止 WATER(pri 1.0) にもゲートを効かせる**。届かない WATER へ歩く価値はゼロ（位置は翌日に持ち越されない）なのに、免除のせいで遠い所有者が claim して到達可能なユニットを弾いていた。",
+      "constants": {},
+      "origin": "review（gen0058#2 → control/fixes.json FIX0030）",
+      "ablation": "同上（同居させたので単独の効果量は分離できない）",
+      "why": "台帳 FIX0030 が挙げた 2 案のうち**後者**を採った。前者（WATER を `dmin` の最寄り担当制に足す）は最初に実装したが、**既に別行動を選んだユニットでも `dmin` を作る**という `dmin` の性質のせいで『誰も来ない穴』を別の形で残す（Codex gen0060#1 が具体的な経路を提示: farmer が隣接で dmin=0 を作り、自分は高優先度の FEED を実行し続け、所有者は毎ターン降りる → 2 日連続未灌水で WEED 化）。**撤回して後者に差し替えた。**",
+      "measured": "3 スモークで critical-three 0・micro NG 集合は親と同一（seed 123 の tile_revisit_share だけ新規 NG → FIX0032）。**発火の観測は依然として無い**（critical-three は枯死を直接見ていないため）。"
+    }
+  ],
+  "gauntlet": {
+    "critical_three": "3 seed（7/42/123）とも noop/unfed/uncared 全 0",
+    "micro_ng": "親 gen0058 と同一集合（inplace_share / last_water_hour / melon_yield / strawberry_yield / tile_util / wheat_yield）＋ **seed 123 だけ `tile_revisit_share` 0.0204（基準 0.02・親 0.0147）が新規 NG**。原因は他ゾーンへの出張の往復（正常）とターンをまたぐ目的地の振動（FIX0032）の混在で、Codex が個別 30 件を分類した。`tile_util` は 3 seed とも大きく改善（0.619→0.728 / 0.693→0.724 / 0.681→0.717）",
+    "check_fixes": "applied 15/15 検出・回帰 0（FIX0030 を applied に更新）／ --audit OK",
+    "static_check": "OK",
+    "profile": "mean 0.00030s / p99 0.00061s / max 0.01491s（親 0.00020 / 0.00036 / 0.00927）",
+    "smoke_money_note": "vs starter の最終資金は 111.7k / 127.6k / 124.0k（親 144.9k / 141.6k / 121.1k）。**スモークの資金では判定しない。** 最初の版で seed42 が −$46.5k だったので内訳を取ったところ、土地 2 枚・HIRE 298・動物 7 購入・売却数量まで親と一致するのに **d15 の市場価格が MILK $211 → $105**（STRAWBERRY 226 → 210）と割れていた ＝ **行動が変われば乱数列がずれる**（c6 の店抽選と同じ分散源）。seed 7 では動物数まで 16 → 12 に変わった。"
+  },
+  "candidate_sha256": "cd5fad84e2e9b6378eb13ed80ea9a1d910402ac8beaf7b27aab79d3f15a87fc9",
+  "review": {
+    "date": "2026-09-19",
+    "reviewer": "codex",
+    "model": "gpt-5.6-sol / reasoning high",
+    "thread": "<redacted-id>",
+    "rounds": 3,
+    "candidate_sha256": "cd5fad84e2e9b6378eb13ed80ea9a1d910402ac8beaf7b27aab79d3f15a87fc9",
+    "checklist": "knowledge/REVIEW_CHECKLIST.md",
+    "diff_range": "agents/gen0058/main.py..agents/gen0060/main.py",
+    "note": "**P0 ゼロ・最終ラウンドで『昇格可』。** ただし 1・2 ラウンド目は『P1 を直してから』で、**P1 4 件はすべて昇格前に fixed**（＝このレビューは記録のためではなく実際にコードを変えた）。最終ラウンドで Codex が独立に確認したこと: `fit` の事前絞り込みで打ち切りの誤りが解消／`_rank()` が VISIT_LAYER・crit・距離・pri・挿入順を再現／`SEED:` の実在種数 0 も除外／`visit_ok` 定義後に前計算を呼ぶ定義順は正しい（クロージャは呼び出し時参照）／WATER の『所有者は届かず非所有者は保護で降りる』経路は閉鎖／最終日は gen0058 と同じ距離保護に戻っている／新しい tuned 定数ゼロ／O(B^2) は盤面上限に対して十分小さい。",
+    "findings": [
+      {
+        "severity": "major",
+        "what": "バックログ集合が所有者の実際の処理順と一致しない（前計算は距離最優先・在庫無視、実選択は在庫で落としてから (lay, crit, d, eff)）。所有者が最優先する遠方の todo が巡回の尾に落ちて解放され、走査順で先に回る farmer に先取りされうる ＝ 『所有者の仕事は 1 件も減らない（単調な緩和）』は成立しない。併せて『貪欲の過大評価は保守側』という我々のコメントは**向きが逆**（過大評価 → doable が小さい → 解放しすぎ）",
+        "resolution": "fixed",
+        "how": "巡回の順序を `_rank()`（`eval_todos` の key の再現）に変更し、在庫・種数で実行できない todo を巡回から除いた。コメントの誤りも訂正し、主張を『先頭 1 件のみ・ターン開始時点の静的近似』に弱めた"
+      },
+      {
+        "severity": "major",
+        "what": "FIX0030 の実装（WATER を `dmin` の対象に足す）が『最寄り判定の対象集合 = 実際に claim できる集合』を保てていない。`dmin` は**既に別行動を選んだユニットでも**作られるので、farmer が隣接で dmin=0 を作りつつ自分は高優先度の FEED を実行し続けると、所有者が毎ターン降りて 2 日連続未灌水 → WEED 化する経路が残る",
+        "resolution": "fixed",
+        "how": "dmin 案を**完全に撤回**し、台帳 FIX0030 のもう一方の案（到達可能性ゲートの carve-out を緊急 FEED だけに狭め、WATER にはゲートを効かせる）に差し替えた"
+      },
+      {
+        "severity": "major",
+        "what": "最終日のバックログ予算（`left = 24 - hour`）と実際の最終行動時刻（h22）が不一致で、かつ最終日はゲートが全面 carve-out されているので、**バックログ理由で解放された最終日の HARVEST 等を、到達できないユニットが claim できる**（収穫物は持ち越せないので静かな全額損失）",
+        "resolution": "fixed",
+        "how": "`_zone_backlog_doable()` は `day >= FINAL_DAY` なら `None` を返し、`_owner_can_come` は従来どおり距離だけで保護する ＝ **最終日に新たな解放は起きない**（親 gen0058 と同一挙動）。FIX0028 / FIX0029（最終日を h22 で切る）は終端清算をまとめて直す別世代に残す"
+      },
+      {
+        "severity": "major",
+        "what": "（2 ラウンド目）順位順に変えたことで `spent > left` での即 `break` が不正になった。到達できない高優先度の todo が 1 件あるだけで巡回全体が終わり、**足元の実行可能な仕事まで解放される**（距離最優先だった旧版では『最近傍が入らなければ他も入らない』ので break は正当だった）",
+        "resolution": "fixed",
+        "how": "各反復で『残り予算に入る候補 `fit`』を先に絞り、その中から `_rank()` で選ぶ。`fit` が空のときだけ break"
+      },
+      {
+        "severity": "minor",
+        "what": "（2 ラウンド目 P2）緊急 FEED の carve-out を残す理由の説明がエンジン規則と合わない（『今日着けない歩行にも翌日の価値がある』は誤り。EOD で farmer 位置はリセットされ hands は消える）",
+        "resolution": "fixed",
+        "how": "コメントを『carve-out を外した版が実測で unfed/uncared を出した。相互作用が読み切れていないので現状維持』に書き換えた"
+      },
+      {
+        "severity": "minor",
+        "what": "（3 ラウンド目 P2）解放に履歴が無く、ターンをまたいだ目的地の振動が起きうる。seed 123 で『作業を挟まない正反対の MOVE』が 17 → 44 回。seed 123 の tile_revisit_share 0.0204 の一部はこれ（残りは出張の往復で正常。Codex が 30 件を個別分類）",
+        "resolution": "deferred",
+        "ledger": "FIX0032",
+        "note": "生産行動 +146/+175・PASS 大幅減・critical-three 0 に対して逆方向 MOVE の増加は約 27 回なので correctness blocker ではない。**50 シード評価を見てから対処を決める**"
+      },
+      {
+        "severity": "minor",
+        "what": "（3 ラウンド目 P2）`_zone_backlog_doable` 前後のコメントが旧実装のまま（『最近傍順』『VISIT_LAYER は入れない』『先頭が必ず保護される』）。実装 ≠ 説明の 6 例目",
+        "resolution": "deferred",
+        "ledger": "FIX0033",
+        "note": "**Codex 自身が deferred を推奨**（レビュー後に main.py を変えると SHA が変わりレビューし直しになる）。meta.json と EXP0060 の説明は正しい方に直してある"
+      }
+    ],
+    "blocking_resolved": true
+  },
+  "eval": {
+    "queued": "state/eval_queue/20260918_183441_gen0060.json",
+    "baseline": "records/eval_gen0058.json",
+    "pool": "control/sparring_pool.json（13 体 e3f96592）",
+    "seeds": 50,
+    "status": "queued"
+  },
+  "exp_file": "knowledge/experiments/EXP0060_backlog-release.md"
+}

@@ -1,0 +1,12 @@
+{
+  "generation": "gen0013",
+  "parent": "gen0012",
+  "track": "B",
+  "date": "2026-09-04",
+  "hypothesis": "gen0012（メロン資本スプリント単体, hands4）は vs gen0010 52.0%・平均+$22 の中立で、リプレイ解剖により労働律速が確定（メロン粗利~$7.5k を中核出力の低下 EGG−28/FERT−20/WOOL−3 が相殺、メロンyieldも水やり不足で2.1/6）。10シード・アブレーション h5=+3,449 / h6=+15,998 / h7=+23,153 / h8=+11,175 → TARGET_HANDS=7 が頂点。『増員8人で頂点』(EXP0010/11) は仕事が無かっただけで、メロン7タイルの仕事を先に作れば序盤増員が利く",
+  "changes": [
+    "TARGET_HANDS 4→7（gen0012 との唯一の差分。scaling 時の SCALE_HANDS=8 は不変）"
+  ],
+  "eval": "records/eval_gen0013.json",
+  "experiment": "knowledge/experiments/EXP0013_sprint-labor-h7.md"
+}

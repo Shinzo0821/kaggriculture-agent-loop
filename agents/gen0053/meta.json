@@ -1,0 +1,118 @@
+{
+  "gen": "gen0053",
+  "parent": "gen0050",
+  "exp": "EXP0053",
+  "date": "2026-09-09",
+  "hypothesis": "王者 gen0048 は d20-27 に空きタイルが 18-32 枚あるのに小麦を 6-15 枚しか維持できていない。空きの大半は小麦プランタイル（収穫後に空いた None）で、メインスケジューラは PLANT todo を出すが PLANT 優先度が layer4(2.80) と低く、終盤は strawberry HARVEST/carrot/水やり(layer2-5)に労働を食われ実行されない。carrot Stage A(gen0048) と同型の労働割当の構造変更で、終盤 d>=21 の小麦『再植え』を layer2 に再分類すれば、通り過ぎる hand が visit-completion で遊休小麦タイルを植え直し、上位 B 型の小麦 d20-27=24 枚・雑草 d28=0 に近づく。小麦は単価フラット $39・床値売り 0 で市場飽和リスク無し。",
+  "source": "state/top_meta/gap_LATEST.md §2/§4-4（小麦 d20 10 vs 24・売上 -$9,236・雑草 d28 14 vs 0）＋ records/replay_gen0048_s42.json 実測（d20-27 空き 18-32・小麦プランタイルが layer4 PLANT 労働飢餓で遊休）。engine CROPS[WHEAT] max_yield_day=4。IDEA_POLICY『未使用の資源の利用・労働割当の構造変更』。境界 LATE_WHEAT_START はエンジンから機械導出（LAST_PLANT_DAY-(max_yield_day+1)+1=21）で数値 sweep ではない。",
+  "changes": [
+    "Change 1: 派生定数を追加。LATE_WHEAT_START = LAST_PLANT_DAY - FALLBACK_CYCLE_DAYS + 1 = 21（この日以降に空いた小麦タイルは最後の1回転しか入らず放置は永久喪失）。WHEAT_RECYCLE_DIG=2.23 / WHEAT_RECYCLE_PLANT=2.24（carrot Stage A と同層[1.5,2.25)。DIG を PLANT より僅かに先に）。",
+    "Change 2: メイン植付スケジューラの小麦 None タイル PLANT を day>=LATE_WHEAT_START の時だけ WHEAT_RECYCLE_PLANT(2.24) に。WEED-DIG 分岐も CARROT=2.22 / (WHEAT and day>=21)=WHEAT_RECYCLE_DIG(2.23) / else=2.6 に。carrot の plant_slots 加算(FIX0008 部分)は不変。小麦 WEED は plant_slots に足さない（FIX0008 は open のまま）。",
+    "Change 3: フォールバック植付（day<=LAST_PLANT_DAY ゲート内・実質 d21-25 のみ layer2 化）。WEED DIG: 2.6→(day>=21 なら WHEAT_RECYCLE_DIG)。PLANT: fb[fallback_pri]→(day>=21 なら WHEAT_RECYCLE_PLANT)。",
+    "他作物・carrot・継承機構・売買・動物物流は一切触っていない。LATE_WHEAT_START=21 なので day<21（d0-20）は全分岐に入らず親 gen0050 とバイト同一が期待値。"
+  ],
+  "status": "REJECTED",
+  "smoke": "本節は動作確認専用（≤8 seed は方向判断・昇格判定に使わない）。エラー 0・両者 DONE・critical-three(noop_total/unfed_days/uncared_days)=0 を確認。発火の証拠として d20-27 の小麦枚数が gen0050 より増え・d28 WEED が減り・day>=21 に WHEAT PLANT アクションが実際に出ることを確認。数値は EXP0053 / 報告参照。",
+  "leak_check": "d0-20 は親 gen0050 とバイト同一が期待値（LATE_WHEAT_START=21 で day<21 は分岐に入らない）。実測で確認する（seed42 で d0-20 の hour 全部の player0 tiles が完全一致）。",
+  "mechanisms": [
+    {
+      "name": "late_wheat_recycle",
+      "since": "gen0053",
+      "what": "終盤 d>=21 の小麦 None/WEED プランタイル再植えを layer4(PLANT 2.80)/layer3(DIG 2.6)→layer2 に再分類（WHEAT_RECYCLE_PLANT 2.24 / WHEAT_RECYCLE_DIG 2.23）。メイン植付スケジューラとフォールバック植付の両方に適用。carrot Stage A(gen0048) と同型の労働割当の構造変更で、通り過ぎる hand が visit-completion で遊休小麦タイルを植え直す。",
+      "constants": {
+        "LATE_WHEAT_START": 21,
+        "WHEAT_RECYCLE_PLANT": 2.24,
+        "WHEAT_RECYCLE_DIG": 2.23,
+        "layer2_bounds": "[1.5, 2.25)",
+        "derivation": "LAST_PLANT_DAY-(max_yield_day+1)+1 = 25-5+1"
+      },
+      "origin": "derived",
+      "ablation": "records/eval_gen0048.json / gen0050（この機構を外した版＝親 gen0050。終盤小麦は layer4 PLANT で労働飢餓・d20-27 小麦 6-15 枚・d28 雑草残存）",
+      "why": "engine 構造から導ける（derived）: 小麦は D+4 で age4 full-yield・D+5 で decay。LAST_PLANT_DAY=25 なので d>=21 に空いた小麦タイルは最後の1回転しか入らず、放置すれば試合終了まで遊休＝永久喪失になる。よって終盤の植え直しは『収量を作る行動』の経済クラス（layer2）に属する。境界 LATE_WHEAT_START は max_yield_day(4)＋1 の回転長から機械導出でき数値 sweep ではない。層2化で hand が通り過ぎに拾う。"
+    },
+    {
+      "name": "carrot_final_day_settlement",
+      "since": "gen0050",
+      "what": "carrot を FINAL_DAY-1(d28) までに全て収穫し、d29 を丸一日 DROP+SELL 搬送に空ける終盤清算。(A) last_plant_day=26（d26 植え→d28 age2 で刈れる限界）＋ ripe=`age>=3 or (day>=FINAL_DAY-1 and age>=2)`。(B) 最終日の SELL 数量に数える carried 在庫を『今ターン実際に DROP する unit の在庫』だけに限定（actions[_ui][0]==\"DROP\"）。FIX0020(A)+(B) と FIX0019 を同時に解決。gen0053 で変更なし。",
+      "constants": {
+        "last_plant_day": 26,
+        "final_harvest_ripe": "age >= 3 or (day >= FINAL_DAY - 1 and age >= 2)",
+        "FINAL_DAY": 29,
+        "carried_sell_guard": "actions[_ui][0] == \"DROP\""
+      },
+      "origin": "derived",
+      "ablation": "records/eval_gen0048.json（この機構を外した版＝gen0048。carrot は発火するが d29 収穫で carried.CARROT=6 未換金＋幽霊 SELL）",
+      "why": "engine 構造から導ける（derived）: carrot は非 ongoing で yield は WATER age∈[2,3] のみ、WATER は day<FINAL_DAY(29) でしか発行されない。従って d29 に生きた carrot を残しても増収 0 かつ収穫→搬送が間に合わず死蔵する。d28 までに刈れば d29 の全 24 時間を DROP+SELL に使える。SELL 数量を実 DROP 分に限定するのは、SELL が shed 在庫からしか約定しない engine 仕様（届かない在庫への注文は無言 no-op）の帰結。"
+    },
+    {
+      "name": "carrot_layer2_reclass",
+      "since": "gen0048",
+      "what": "gen0047 の fast_carrot_rotation を層2化して発火させる Stage A 修正。carrot 窓内の WEED-DIG（層3 2.6→層2 2.22）と PLANT（層4 2.82→層2 2.24）を『収量を作る行動』の経済クラス（イチゴ HARVEST と同層）に再分類。他作物の DIG(2.6)/plant_pri は不変。gen0053 で変更なし。",
+      "constants": {
+        "carrot_dig_pri": 2.22,
+        "carrot_plant_pri": 2.24,
+        "layer2_bounds": "[1.5, 2.25)",
+        "harvest_hpri": 2.2,
+        "other_crops_dig_pri": 2.6,
+        "other_crops_plant_pri": "unchanged"
+      },
+      "origin": "observed",
+      "ablation": "records/eval_gen0047.json（親 gen0047＝carrot 機構は在るが非発火）",
+      "why": "gen0047 で carrot DIG(層3)/PLANT(層4) がイチゴ HARVEST(層2) の d26-27 ピークに starve され植付 0 に終わった（EXP0047）。行動の層所属を経済クラスで決め直せば IDLE の中で DIG→PLANT が LAST_PLANT_HOUR 前に回る。IDEA_POLICY §4 の層所属の決め直し。"
+    },
+    {
+      "name": "fast_carrot_rotation",
+      "since": "gen0047",
+      "what": "4 産を終えて engine が WEED 化したイチゴタイル（25 枚）だけを d24-27 に DIG→CARROT 化する。CROP_PLANS[\"CARROT\"]（窓 (24,27)・from_day 24）＋ per-crop 植付期限＋種購入 carrot 追加＋収穫 carrot 分岐＋BONUS_WINDOW/MAX_YIELD。触るのは kind=WEED/None のタイルのみ。gen0050 で last_plant_day を 27→26 に更新（FIX0020）。gen0053 で変更なし。",
+      "constants": {
+        "window": "(24,27)",
+        "last_plant_day": 26,
+        "from_day": 24,
+        "plant_pri": 2.24,
+        "dig_pri": 2.22,
+        "water_pri": 3.02,
+        "seed_cost": 20,
+        "buy_cap": 12,
+        "tiles_count": 25,
+        "BONUS_WINDOW": "(2,3)",
+        "MAX_YIELD": 3
+      },
+      "origin": "observed",
+      "ablation": "records/eval_gen0046.json（この機構を外した版＝gen0046。carrot 無し）",
+      "why": "LB #1 両席の実測（d24 開始・終盤自陣 WEED≈0）を取り込む。last_plant_day は gen0050 で 26 に下げ、d29 収穫の死蔵（FIX0020）を無くした。"
+    }
+  ],
+  "mechanisms_doc": "gen0050 から継承した機構（funded_wool_expansion・feed_buffer_lookahead_on_expansion・expansion_hands_bump・market_budget_reconcile・beta_harvest_unlock_gate・carrot_layer2_reclass・fast_carrot_rotation・carrot_final_day_settlement）は変更なし。gen0053 の新規は late_wheat_recycle（終盤小麦再植えの層2化）で、既存機構への変更は無い。継承機構の完全な台帳は gen0046/gen0048/gen0050 の meta.json を参照。",
+  "candidate_sha256": "",
+  "notes": "親 gen0050（現王者系譜・fix 台帳 applied 14/14）のコピー＋late_wheat_recycle の 3 変更のみ。eval baseline = records/eval_gen0048.json（王者）。eval は Supervisor がキューに積む（本世代からは submit/approve/commit しない）。Codex レビューは Supervisor が eval 後・昇格前に実施する（本 meta の review は placeholder。捏造しない）。candidate_sha256 は Supervisor がレビュー時点で埋める。",
+  "review": {
+    "status": "pending",
+    "note": "Codex レビュー未実施。Supervisor が eval 後・昇格前に knowledge/REVIEW_CHECKLIST.md の 7 観点で実施し、findings/blocking_resolved/candidate_sha256 をここに記録する。placeholder（捏造しない）。",
+    "findings": []
+  },
+  "gate_result": {
+    "pass": false,
+    "overall_margin_delta_paired": [
+      -681.8,
+      -940.7,
+      -422.9
+    ],
+    "strong_margin_delta_paired": [
+      -364.1,
+      -677.9,
+      -50.3
+    ],
+    "money_delta_paired": [
+      38.8,
+      -211.6,
+      289.1
+    ],
+    "strong_money_delta_paired": [
+      613.4,
+      304.6,
+      922.3
+    ],
+    "rating_delta": 0.0,
+    "verdict": "reject: overall & strong margin CI wholly < 0 (wheat supply gift to opponents); self-money up but margin down. Not a measure candidate."
+  }
+}

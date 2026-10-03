@@ -1,0 +1,82 @@
+{
+ "gen": "gen0055",
+ "parent": "gen0051",
+ "exp": "EXP0055",
+ "date": "2026-09-10",
+ "hypothesis": "gen0051 は対応付きマージンで勝つが自資金(money_delta_paired −243)と後半 slope(−331)が沈む=『相手には勝つが自分が伸びない』(knowledge/analysis/2026-09-10_gen0051-endgame-flatline.md)。主因は premium 3品(乳・羊毛・イチゴ・メロン)が共有市場均衡で床値に叩き合われること(=denial として正当・売り方は非競争なら $238/乳・床値0 で既に最適)。卵は唯一の非競合市場(相手は卵≈0個、上位B中央値74個)で first_yield_day=4/interval=1(設置4日後から毎日産卵)。premium 売却に一切触れずに自資金と slope を上げられる唯一のレバー=ガチョウ3羽導入。denial マージンを壊さず(卵は誰も混んでいない出口)、遊休した終盤労働を相手非依存で埋める。gen0051 の弱点(自資金)に最も素直に効く。",
+ "source": "knowledge/analysis/2026-09-10_gen0051-endgame-flatline.md §3-4(レバー順位でガチョウが単一・denial安全・IDEA_POLICY#1 畜産構成変更で推奨)。engine kaggriculture.py:20(GOOSE spec)/493(BUILD_COOP)。IDEA_POLICY §1(畜産構成の変更)。Track A(自資金回復)。",
+ "changes": [
+  "gen0051 のコピー + ガチョウ(COOP + EGG)3羽の配線のみ。premium(イチゴ・メロン)・乳/羊毛/イチゴ/メロンの売却・carrot ローテ・骨格(土地/牛羊/hire 曲線)は一切変更していない。",
+  "ANIMALS に GOOSE を追加(cost 300/product EGG/last_buy 20/max_held 4)。carried_animals・owned・room・PLACE ループが `for a in ANIMALS` で自動的にガチョウを会計に含む。EGG は既に ALWAYS_SELL(gen0051 で配線済み)。",
+  "COOP_TILES 新設 = NE x=8 列の低価値自給小麦 (8,2)(8,3)(8,4) を CROP_PLANS[WHEAT].tiles から削除して転用 + SE 予備 2枚 (9,8)(8,8)。NE パスチャ列(x5-7)隣接で同一 NE 動物ゾーンの hand が牛と一緒に給餌でき、シェッド(x4-5)からの小麦運搬も最短。SE 予備は LOCKED の間素通り(非 expansion 発火せず)。",
+  "goose_target(day)=3 (day>=GOOSE_START=14) を新設。COOP 建設(goose_target(day+1)>0 で前日 d13 に BUILD_COOP、パスチャ建設と同型)・購入ループ(SHEEP,COW の後に GOOSE、afford と empty_coops でキャップ)・PLACE ループ(GOOSE は empty_coops へ、他はパスチャへ)・fallback reserved に COOP_TILES 追加。",
+  "hands_target に発火限定 +1 hand(GOOSE_START-1=d13 〜 LAST_FEED_DAY=d28)。gen0045 の expansion と同じく『動物追加に束ねた発火限定の増員』。x=8 co-location により +1 で 3 seed とも unfed/uncared=0 を達成(+2 は不要だった=location が本質)。",
+  "feed_buffer/planned_total は owned(ガチョウ込み)を経由するので飼料小麦の市場買いが自動でガチョウ分を補填し unfed_days=0 を維持。削除した 3 小麦タイル分は市場買いが吸収。"
+ ],
+ "deviation_from_plan": "c3 §4 は『crop plans と非重複の空き COOP_TILES を新設』を前提にしたが、gen0051 の盤面は NW/NE/SW(確実解放の 75 タイル)を 1 枚残らず埋め尽くしている(実測 seed42: unlocked-but-ever-empty = 0 枚。唯一の空き (4,3) すら fallback 小麦が埋める)。SE の空きは expansion(≈12%)でしか解放されず『全 seed で発火』が satisfy できない。従って全 seed で COOP を建てるには何かを退けるしかなく、最も価値の低い NE 自給小麦 3枚を COOP に転用した。根拠: 小麦は非競合(分析: vs georgy $39/vs boatlee $41 価格ほぼ同一)なので減産は相手への利得供与(原理3)にならない、小麦増産は EXP0038 で +$44[CI −1,213,+1,301]=限界価値≈0、premium/パスチャ/carrot は無傷。この逸脱は Supervisor へ明示報告済み(昇格前に採否を仰ぐ)。",
+ "status": "candidate (未評価。eval は Supervisor がプール改編完了後にキューへ。本世代からは submit/approve/commit しない)",
+ "smoke": "vs starter seed 7/14/42: エラー0・両者 DONE・gen0055 全勝。final_money 121913/144046/102789(参考 gen0051 同seed 149253/155185/103829)。vs starter は非競合=premium が満額($240/イチゴ)なので $50 の卵に労働を割くのは悪トレード→自資金が下がるのは想定内(検出限界+非競合アーティファクトであって判定ではない。CLAUDE.md)。競合プールでは premium が床値$24-47 に潰れるので卵への振り替えが正のトレードに反転する見込み=これが仮説の核。micro_audit --assert(seed 7/14/42): critical-three(noop_total/unfed_days/uncared_days)全 0 = OK。残る NG(inplace_share/last_water_hour/melon_yield/strawberry_yield/tile_util/wheat_yield)は gen0051 とバイト同一の集合=FIX0013 強帯目標(--limit 対象)で新規回帰 0。strawberry_yield は 1.887→1.792 と微減(ガチョウ労働トレードオフ。両世代とも ≥2 に届かず NG)。never_used_tile=0(COOP タイルは使われる)。check_fixes applied 14/14・open 6(gen0051 と同一)。profile max 0.0103s(<1.0 OK)。卵: 70/76/74 個売却・ガチョウ 3羽設置&給餌・COOP 3棟・初売り d19-20。",
+ "candidate_sha256": "3e4a4edbe28321073fd06e78a0c6055cf782f0a52baf9405005fb81c8d46ba36",
+ "mechanisms": [
+  {
+   "name": "goose_egg_market",
+   "since": "gen0055",
+   "what": "ガチョウ 3羽(COOP + EGG)を全 seed で導入。NE x=8 列の低価値自給小麦 (8,2)(8,3)(8,4) を COOP_TILES に転用(WHEAT 計画から削除)、goose_target=3(d14+)・COOP 前日建設・購入(afford+empty_coops キャップ)・PLACE を empty_coops へ・fallback reserved に COOP・発火限定 +1 hand(d13-28)。卵は非競合市場(相手≈0個)で first_yield_day=4/interval=1 で毎日産卵し premium 売却に非接触=denial マージンを壊さず自資金/slope を上げる。",
+   "constants": {
+    "geese": 3,
+    "goose_cost": 300,
+    "goose_last_buy": 20,
+    "goose_max_held": 4,
+    "goose_start_day": 14,
+    "coop_tiles_ne": "[(8,2),(8,3),(8,4)]",
+    "coop_tiles_se_spare": "[(9,8),(8,8)]",
+    "wheat_tiles_removed": "[(8,2),(8,3),(8,4)]",
+    "hands_bump": 1,
+    "hands_bump_window": "[GOOSE_START-1=13, LAST_FEED_DAY=28]",
+    "first_yield_day": 4,
+    "interval": 1
+   },
+   "origin": "tuned",
+   "ablation": "records/eval_gen0051.json(この機構を外した版=親王者。gen0055 vs gen0051 が卵の isolated 効果)。※プール改編完了後に Supervisor が取得",
+   "why": "卵市場は engine 上 T=332 で glut 耐性が高く base $51、上位B中央値 74個どまりで実質丸取り(分析 §3-4)。GOOSE spec は engine kaggriculture.py:20 から derived だが、GOOSE_START=14(premium 種窓 d13・メロン第2波 d10-12 の現金競合を回避)・hands_bump=1・COOP を x=8 に置く(x=9 far corner だと d24 の 1羽が未給餌になった実測)は当てにいった tuned 値。x=8 co-location は『定数(hands+2)ではなく構造(隣接)で解く』の実践で +1 hand に減らせた。COOP タイル選択は『空きが無いので最も価値の低い小麦を退ける』派生。"
+  },
+  {
+   "name": "early_sw_strawberry_wave",
+   "since": "gen0049",
+   "what": "SW クアドラント購入日を d11→d8、SW イチゴ(rows 6-8 の 15 枚)の from_day を 10→8 に型ごと同時前倒し。gen0051 から継承(gen0055 で変更なし)。",
+   "constants": {"sw_land_day": 8, "sw_strawberry_from_day": 8, "sw_tiles_count": 15, "window": "(4,13)_unchanged", "prev_sw_land_day": 11, "prev_from_day": 10},
+   "origin": "observed",
+   "ablation": "records/eval_gen0050.json / records/eval_gen0048.json",
+   "why": "gen0049 で Stage B は強帯マージン +$1,267[+441,+2094] と明確に正。gen0051 で FIX0020 済みの上に載せた合成。IDEA_POLICY §1。"
+  },
+  {
+   "name": "carrot_final_day_settlement",
+   "since": "gen0050",
+   "what": "carrot を FINAL_DAY-1(d28)までに全て収穫し d29 を DROP+SELL 搬送に空ける終盤清算(FIX0019+FIX0020)。gen0051 から継承(gen0055 で変更なし)。",
+   "constants": {"last_plant_day": 26, "final_harvest_ripe": "age >= 3 or (day >= FINAL_DAY - 1 and age >= 2)", "FINAL_DAY": 29, "carried_sell_guard": "actions[_ui][0] == \"DROP\""},
+   "origin": "derived",
+   "ablation": "records/eval_gen0049.json",
+   "why": "carrot は非 ongoing で yield は WATER age∈[2,3] のみ。d28 までに刈れば d29 の全時間を DROP+SELL に使える。"
+  },
+  {
+   "name": "carrot_layer2_reclass",
+   "since": "gen0048",
+   "what": "carrot 窓内の WEED-DIG と PLANT を収量クラス(層2)に再分類。gen0051 から継承(gen0055 で変更なし)。",
+   "constants": {"carrot_dig_pri": 2.22, "carrot_plant_pri": 2.24, "layer2_bounds": "[1.5, 2.25)", "harvest_hpri": 2.2},
+   "origin": "observed",
+   "ablation": "records/eval_gen0047.json",
+   "why": "gen0047 で carrot DIG/PLANT がイチゴ HARVEST に starve され植付 0 に終わった。IDEA_POLICY §4。"
+  },
+  {
+   "name": "fast_carrot_rotation",
+   "since": "gen0047",
+   "what": "4 産を終えて WEED 化したイチゴタイル(25枚)だけを d24-27 に DIG→CARROT 化する。gen0051 から継承(gen0055 で変更なし)。",
+   "constants": {"window": "(24,27)", "last_plant_day": 26, "from_day": 24, "seed_cost": 20, "buy_cap": 12, "tiles_count": 25, "MAX_YIELD": 3},
+   "origin": "observed",
+   "ablation": "records/eval_gen0046.json",
+   "why": "LB #1 両席の実測(d24 開始・終盤自陣 WEED≈0)を取り込む。"
+  }
+ ],
+ "mechanisms_doc": "gen0055 = gen0051 のコピー + goose_egg_market(新規・唯一の追加機構)。継承機構(early_sw_strawberry_wave・carrot_final_day_settlement・carrot_layer2_reclass・fast_carrot_rotation、および gen0048/gen0050 由来の funded_wool_expansion・feed_buffer_lookahead_on_expansion・expansion_hands_bump・market_budget_reconcile・beta_harvest_unlock_gate)は gen0051 と 1 行も変えていない(WHEAT タイル 3枚削除と feed 会計へのガチョウ加算を除く)。台帳の継承分は gen0049/gen0050/gen0051 を参照。FIX0008 は carrot 部分適用で open のまま。",
+ "notes": "親(コード基盤)= gen0051(現王者)。eval baseline = プール改編完了後に Supervisor が取得(records/eval_gen0051.json はプール改編プロセスが所有中のため本世代からは触れない)。ガチョウは全 seed で発火(expansion 非依存)＝非発火同一性の縛りは無い(卵は相手が触らない非競合市場なので gen0045 のような店条件付き発火は不要)。GOOSE_START=14 と hands_bump=1 と COOP x=8 は tuned で、削る世代の候補(次に外して CI が 0 をまたぐか測る)。Codex レビューは Supervisor が eval 後・昇格前に実施(本 meta の review は意図的に absent=未実施を捏造しない)。candidate_sha256 は現 main.py の値でレビュー前にコードを触ったら取り直す。"
+}

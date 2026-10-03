@@ -1,0 +1,58 @@
+{
+  "gen": "gen0031",
+  "parent": "gen0026",
+  "exp": "EXP0030",
+  "date": "2026-09-05",
+  "track": "出口（市場の吸収量）— 売却の粒度と、町の実消費に対する売却レート",
+  "hypothesis": "EXP0027（土地 +25 タイル）・EXP0028（待機時間の回収）・EXP0029（動物 +4 頭）が3 つとも強帯に効かず、EXP0029 で理由が出た——**出口が詰まっている**。牛乳の産出を +39% 増やしても資金は −$20k。プレミアム 3 品の売却総量が505 個 vs 相手 942 個。IDEA_POLICY「出してよい」1 番（エンジンの価格モデルから導ける）。",
+  "source": "knowledge/experiments/EXP0030_market-throughput.md ／ knowledge/analysis/2026-09-05_idle-hand-hours.md",
+  "changes": [
+    "1. **売却の粒度**（gen0030 由来）: trickle を「hour == 0 に 1 日ぶんまとめて」から「1 日ぶんを 24 時間に均等配分した、その時刻の取り分」に変える（absorb*(h+1)//24 - absorb*h//24。1 日の合計は不変）。エンジンの価格は市場在庫の関数なので、1 日ぶんを一度に積むと自分でその場の価格を下げる。**実測: 総量は 1 個も変わらず粒度だけが変わった**（MILK 186 個を 26 回 → 51 回）。",
+    "2. **売却レートを町の実消費の 2 倍に**: premium_absorb の係数 6/12/6 → 12/24/12。**この係数はエンジンの町消費そのもの**（townShopSellInterval=4 step ごとに各店舗 1 個、単品店は 2 個、町中心は 24 step ごとに 1 個 → 1 日 6/12/+1）なので、2 倍にするのは**町が吸収する以上に売って在庫を積み、価格を意図的に下げる**変更。自分の資金は横ばい（−$116、検出不能）で、相手の資金がより大きく下がる。"
+  ],
+  "smoke": "vs kaito_v48 s42: SELL 回数 133 → 264、1 回平均 MILK 7.2 → 3.6・WOOL 7.4 → 1.5・STRAWBERRY 6.4 → 1.8。労働系の指標（FERTILIZE 19・PLANT 119・WATER 723・HARVEST 223・BUY_SEED 86・HIRE 298）は gen0026 とほぼ同一＝**売却以外は何も変わっていない**ことを確認済み。市場注文数は 5 シード約 3,600 ターンで最大 8 件（上限 10）。",
+  "status": "GATE_PASSED_50",
+  "notes": "**この世代は「相手の価格を下げる」型**であって「自分がもっと売れるようになる」型ではない。money_delta_paired は −$116 [−341, +108] で検出不能＝横ばい、margin が +$538 [+358, +718]。denial-vs-production.md の「マージンで勝っていても自分の絶対額が下がる型は避ける」には該当しない（50 シードでも下がっていることが検出できず、slope も −18）。／ **今日マージン基準に変えていなければ棄却されていた最初の世代。** ／ 出口の詰まりの本体はまだ残っている（相手は 1.9 倍売っている）。次は係数ではなく market.inventory の毎時のドレインから導く形に置き換える。",
+  "mechanisms": [
+    {
+      "name": "market_throughput",
+      "since": "gen0031",
+      "what": "プレミアム品（MILK/WOOL/STRAWBERRY）の売却を、1 日ぶんを 24 時間に均等配分した流量で出す。流量は町の実消費の 2 倍",
+      "constants": {
+        "town_consumption_per_day": "MILK 1+6*店舗数 ／ WOOL 1+12*店舗数 ／ STRAWBERRY 1+6*店舗数（エンジンの _town_consume から導出）",
+        "sell_rate_multiplier": 2,
+        "spread": "absorb*(hour+1)//24 - absorb*hour//24"
+      },
+      "origin": "derived+tuned",
+      "ablation": "records/eval_gen0030_s24.json（粒度のみ。倍率 1 倍）",
+      "why": "町の消費量そのものは kaggriculture.py の _town_consume から導ける（derived）。**倍率 2 だけが設計判断（tuned）**で、意図は自分の売上増ではなく相手の価格を下げること。24 シードで 1 倍（gen0030）と 2 倍（gen0031）を対応付き比較し、2 倍が +$201 [+80, +322] 上だった"
+    }
+  ],
+  "mechanisms_doc": "この配列は gen0026 からの**差分だけ**。全機構の台帳は agents/gen0026/meta.json を参照（gen0031 は売却以外を変更していない）。",
+  "review": {
+    "date": "2026-09-05",
+    "reviewer": "codex",
+    "candidate_sha256": "c750153d0710cba9c43aa8e4fe31fd3f475e68ed2ae8cd083509776f869c5968",
+    "checklist": "knowledge/REVIEW_CHECKLIST.md",
+    "diff_range": "agents/gen0026/main.py..agents/gen0031/main.py",
+    "findings": [
+      {
+        "severity": "minor",
+        "what": "小口 SELL が 1 ターン 10 件（maxMarketOrdersPerTurn）の枠を食い、末尾の HIRE / BUY_SEED を押し出しうる。codex は合成観測でgen0026 = 10 件・gen0031 = 12 件（イチゴ種と小麦種が落ちる）を再現。**ただし実戦では発火しない**: 実装を計測版に差し替えて 5 シード（約 3,600 ターン）走らせたところ、注文が 7 件になったのが 15 ターン・8 件が 8 ターンで、**9 件以上は 0**。同一シードの実戦でもBUY_SEED 85 → 86・HIRE 298 → 298・PLANT 119 → 119 で押し出しは起きていない。codex の申告どおり発生頻度は未計測だったので、こちらで測って minor に格下げした",
+        "resolution": "deferred"
+      },
+      {
+        "severity": "minor",
+        "what": "**こちらの記述が誤っていた（codex が正しい）。** premium_absorb の係数 6/12/6 は『当てにいった安全レート(tuned)』ではなく、**エンジンの町消費そのもの**だった。_town_consume は townShopSellInterval=4 step ごとに各店舗が 1 個（単品店 YARN_STORE は multiplier=2）、townCenterSellInterval=24 step ごとに町中心が 1 個消費する → 1 日あたり 24/4=6 個/店・単品店 12 個・町中心 +1。つまり gen0031 は『安全側に寄せすぎた値を戻した』のではなく、**町の実消費の 2 倍を売って意図的に在庫を積み価格を下げる**変更である。EXP0030 の記述と『削る世代』という位置づけを訂正した",
+        "resolution": "fixed"
+      },
+      {
+        "severity": "major",
+        "what": "終盤清算の漏れ（gen0024 以前からの継承）: 最終行動は step=718 / d29 h22。シェッド上で手持ち MILK があり shed 在庫が 0 の場合、DROP は出すが SELL は出さない。市場数量を『行動前の shed』から作るため。エンジンは DROP → 市場の順なので本来は同ターンに売れる。収穫候補にも帰還・DROP・売却までの残り時間判定が無い",
+        "resolution": "deferred"
+      }
+    ],
+    "blocking_resolved": true,
+    "note": "fatal は無し。負荷確認は最大 4.33 ms。重点確認 (a) trickle 式は hour 0 起点で1 日の合計がちょうど absorb になる（望遠和）— 問題なし。(b) 係数 2 倍は DUMP_DAY=28 / SHED_DUMP=78 の全量ダンプ分岐より後なので干渉しない、feed 用小麦の保持判定も premium_absorb を参照しない — 問題なし。(c) 市場スロットは上記のとおり実戦では余裕 2 件。gen0025/gen0026 の指摘はこの世代にも継承されている。"
+  }
+}

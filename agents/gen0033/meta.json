@@ -1,0 +1,32 @@
+{
+ "gen": "gen0033",
+ "parent": "gen0031",
+ "exp": "EXP0033",
+ "date": "2026-09-06",
+ "track": "土地: SW を d11 に解禁（gen0027 の変更を現王者の系統に再適用）",
+ "hypothesis": "gen0027（親 gen0026）は 50 シードで gate.pass=True だった: 全体マージン +$3,038 [+1,926, +4,150] ／ 自分の資金 +$2,615 [+1,017, +4,212] ／ rating Δ 0.0。非昇格にしたのは強帯 CI が 0 をまたいだからで、**点推定は +$1,049 で正**だった。その後 gen0030/gen0031（出荷の粒度と量）が gen0026 の上に載ったので、土地の効果が現王者の上でも残るかを測り直す。実際に提出した gen0031 の全体マージンは +$538 なので、もし残っていれば土地の方が 5.6 倍大きい。",
+ "source": "knowledge/analysis/2026-09-06_which-market-is-actually-closed.md ／ records/eval_gen0027.json",
+ "changes": [
+  "`land_target` に d11 の SW を足す 1 点のみ（gen0027 と同じ日）。`CROP_PLANS` は gen0022 から SW タイル（from_day 10）を含んでいるので、土地が開けば作付けは自動で追随する（イチゴ +15・メロン +4・小麦 +5）。"
+ ],
+ "smoke": "vs rayk_c95 s42/s7/s100 で両者 DONE、unfed 0 日・uncared 0 日、noop 0。profile mean 0.17 ms / max 0.35 ms。micro_audit --assert は 75 タイルで inplace 0.295 / revisit 0.163 / tile_util 0.709 と gen0031 より悪化する（労働効率は gen0034 の担当）。",
+ "status": "EVAL_QUEUED",
+ "notes": "24 シードで方向判断 → 良ければ 50 シードと Codex レビュー。",
+ "mechanisms": [
+  {
+   "name": "land_sw",
+   "since": "gen0033",
+   "what": "d11 に SW（3 枚目のクアドラント）を買う。25 タイル増える",
+   "constants": {
+    "day": 11,
+    "price": 2000
+   },
+   "origin": "derived",
+   "ablation": "records/eval_gen0031_s24.json（親＝買わない版）",
+   "why": "d10 のメロン IPO の翌日にすると購入原資が proceeds から出る。gen0027 で単独 gate.pass 済み"
+  }
+ ],
+ "mechanisms_doc": "この配列は親からの**差分だけ**。全機構の台帳は agents/gen0026/meta.json。",
+ "review": null,
+ "candidate_sha256": "550b16dd2dc2adcbc34f15ba3aa5cd01c4b9d18585faee389ddfc544858ad87d"
+}

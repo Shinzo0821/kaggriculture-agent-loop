@@ -1,0 +1,78 @@
+{
+ "gen": "gen0050",
+ "parent": "gen0048",
+ "exp": "EXP0050",
+ "date": "2026-09-08",
+ "hypothesis": "gen0048 は carrot 機構を発火させたが、最終日清算に 2 つの穴が残る（FIX0020）: (A) d27 植え carrot が d29 収穫になり、収穫した hand がシェッドに届かず carried.CARROT=6 が未換金（3 smoke seed とも）、(B) 市場売却が carried 全量を DROP 可能として SELL 数に加算し届かない在庫へ幽霊 SELL 注文を出す。~$300/試合の forgone upside で carrot 機構最大のレバー。carrot を d28 までに刈り d29 を丸一日 DROP+SELL 搬送に空ければ carried.CARROT→~0 で実換金でき、幽霊 SELL も止まる。あわせて d29 carrot 水やり不足（FIX0019）も『d29 に生きた carrot を残さない』設計で不要化する。",
+ "source": "control/fixes.json FIX0019/FIX0020（gen0048#0/#1 の Codex 指摘）。knowledge/analysis/2026-09-07_carrot-nonfiring-and-next-lever.md。engine 検証: kaggriculture.py CARROT は非 ongoing、yield は WATER age∈[2,3] のみ、HARVEST は day-planted>=first_yield_day(2) かつ yield>0。IDEA_POLICY §（機構の穴を塞ぐ修正・数値 sweep ではない）。",
+ "changes": [
+  "Change 1a (FIX0020(A)): CROP_PLANS[\"CARROT\"][\"last_plant_day\"] を 27 → 26。d27 植えは age2 が d29 に来るが d29 は WATER が FINAL_DAY ガードで発行されず増収 0（yield=1 のまま）かつ搬送が間に合わず死蔵する。最後の有用な carrot 植えは d26（d28 に age2 で刈れる）。",
+  "Change 1b (FIX0020(A)+FIX0019): carrot ripe を `age >= 3 or (day >= FINAL_DAY and age >= 2)` → `age >= 3 or (day >= FINAL_DAY - 1 and age >= 2)`。d25 植えは d28 に age3（第1節・収量2=d27+d28 水やり）、d26 植えは d28 に age2（第2節・収量1=d28 水やり）。両方 d28 収穫→carried→d29 の丸一日で DROP+SELL。d29 に生きた carrot が残らないので FIX0019（d29 carrot bonus WATER）は不要になり追加しない。",
+  "Change 2 (FIX0020(B)): 最終日の carried_item 集計を、その unit の選択済み action が今ターン DROP の時だけに限定（`if _ui < len(actions) and actions[_ui] and actions[_ui][0] == \"DROP\":`）。actions は上で全ユニット分組み終わっており、DROP を出すのは今ターンにシェッド上に立って落とす unit だけ（歩行中は MOVE を積む）。FIX0003（今ターン DROP 分を shed 在庫に上乗せ）を温存しつつ、届かない在庫への反復 SELL 注文（無言 no-op）を止める。",
+  "他作物・非 carrot コード・継承 6 機構（funded_wool_expansion 他）・carrot 層2再分類（gen0048）は 1 行も触っていない。"
+ ],
+ "status": "IN_PROGRESS",
+ "smoke": "本節は動作確認専用（≤8 seed は方向判断・昇格判定に使わない）。数値は下記 EXP0050 / 報告参照。エラー 0・両者 DONE・critical-three(noop_total/unfed_days/uncared_days)=0 を確認。carried.CARROT が 6→~0 に落ち carrot が実際にシェッドで換金されることを確認（fix の証拠）。final_money は同 seed の gen0048 と比べ明らかな回帰が無いことのみ確認。",
+ "leak_check": "d0-24 は親 gen0048 とバイト同一が期待値（変更は carrot late-game(d25-28 の ripe/last_plant_day)＋最終日(d29) SELL sizing のみ）。d24 も植付は d25 からで carrot ripe 分岐は age>=3 が d27 以降にしか立たないため diff 無しの想定。実測は報告参照。",
+ "mechanisms": [
+  {
+   "name": "carrot_final_day_settlement",
+   "since": "gen0050",
+   "what": "carrot を FINAL_DAY-1(d28) までに全て収穫し、d29 を丸一日 DROP+SELL 搬送に空ける終盤清算。(A) last_plant_day=26（d26 植え→d28 age2 で刈れる限界）＋ ripe=`age>=3 or (day>=FINAL_DAY-1 and age>=2)`。(B) 最終日の SELL 数量に数える carried 在庫を『今ターン実際に DROP する unit の在庫』だけに限定（actions[_ui][0]==\"DROP\"）。FIX0020(A)+(B) と FIX0019 を同時に解決。",
+   "constants": {
+    "last_plant_day": 26,
+    "final_harvest_ripe": "age >= 3 or (day >= FINAL_DAY - 1 and age >= 2)",
+    "FINAL_DAY": 29,
+    "carried_sell_guard": "actions[_ui][0] == \"DROP\""
+   },
+   "origin": "derived",
+   "ablation": "records/eval_gen0048.json（この機構を外した版＝親 gen0048。carrot は発火するが d29 収穫で carried.CARROT=6 未換金＋幽霊 SELL）",
+   "why": "engine 構造から導ける（derived）: carrot は非 ongoing で yield は WATER age∈[2,3] のみ、WATER は day<FINAL_DAY(29) でしか発行されない。従って d29 に生きた carrot を残しても増収 0 かつ収穫→搬送が間に合わず死蔵する。d28 までに刈れば d29 の全 24 時間を DROP+SELL に使える。SELL 数量を実 DROP 分に限定するのは、SELL が shed 在庫からしか約定しない engine 仕様（届かない在庫への注文は無言 no-op）の帰結。"
+  },
+  {
+   "name": "carrot_layer2_reclass",
+   "since": "gen0048",
+   "what": "gen0047 の fast_carrot_rotation を層2化して発火させる Stage A 修正。carrot 窓内の WEED-DIG（層3 2.6→層2 2.22）と PLANT（層4 2.82→層2 2.24）を『収量を作る行動』の経済クラス（イチゴ HARVEST と同層）に再分類。他作物の DIG(2.6)/plant_pri は不変。gen0050 で変更なし。",
+   "constants": {
+    "carrot_dig_pri": 2.22,
+    "carrot_plant_pri": 2.24,
+    "layer2_bounds": "[1.5, 2.25)",
+    "harvest_hpri": 2.2,
+    "other_crops_dig_pri": 2.6,
+    "other_crops_plant_pri": "unchanged"
+   },
+   "origin": "observed",
+   "ablation": "records/eval_gen0047.json（親 gen0047＝carrot 機構は在るが非発火）",
+   "why": "gen0047 で carrot DIG(層3)/PLANT(層4) がイチゴ HARVEST(層2) の d26-27 ピークに starve され植付 0 に終わった（EXP0047）。行動の層所属を経済クラスで決め直せば IDLE の中で DIG→PLANT が LAST_PLANT_HOUR 前に回る。IDEA_POLICY §4 の層所属の決め直し。"
+  },
+  {
+   "name": "fast_carrot_rotation",
+   "since": "gen0047",
+   "what": "4 産を終えて engine が WEED 化したイチゴタイル（25 枚）だけを d24-27 に DIG→CARROT 化する。CROP_PLANS[\"CARROT\"]（窓 (24,27)・from_day 24）＋ per-crop 植付期限＋種購入 carrot 追加＋収穫 carrot 分岐＋BONUS_WINDOW/MAX_YIELD。触るのは kind=WEED/None のタイルのみ。gen0050 で last_plant_day を 27→26 に更新（FIX0020: d29 遠征を無くす）。",
+   "constants": {
+    "window": "(24,27)",
+    "last_plant_day": 26,
+    "from_day": 24,
+    "plant_pri": 2.24,
+    "dig_pri": 2.22,
+    "water_pri": 3.02,
+    "seed_cost": 20,
+    "buy_cap": 12,
+    "tiles_count": 25,
+    "BONUS_WINDOW": "(2,3)",
+    "MAX_YIELD": 3
+   },
+   "origin": "observed",
+   "ablation": "records/eval_gen0046.json（この機構を外した版＝gen0046。carrot 無し）",
+   "why": "LB #1 両席の実測（d24 開始・終盤自陣 WEED≈0）を取り込む。last_plant_day は gen0050 で 26 に下げ、d29 収穫の死蔵（FIX0020）を無くした。"
+  }
+ ],
+ "mechanisms_doc": "gen0048 から継承した 8 機構（funded_wool_expansion・feed_buffer_lookahead_on_expansion・expansion_hands_bump・market_budget_reconcile・beta_harvest_unlock_gate・carrot_layer2_reclass・fast_carrot_rotation＋その他）は carrot 終盤以外変更なし。gen0050 の新規は carrot_final_day_settlement（FIX0019+FIX0020 の解決）で、既存機構への変更は fast_carrot_rotation の last_plant_day 27→26 のみ。継承機構の台帳は gen0046/gen0048 の meta.json を参照。",
+ "candidate_sha256": "6465c78789e1dfcde99b721d1f0c988672aedbcf565741a8c92cc6df4ff1566c",
+ "notes": "親 gen0048（現王者）のコピー＋carrot 終盤 3 変更のみ。eval baseline = records/eval_gen0048.json。eval は Supervisor がキューに積む（本世代からは submit/approve/commit しない）。Codex レビューは Supervisor が eval 後・昇格前に実施する（本 meta の review は placeholder。捏造しない）。candidate_sha256 は現 main.py の値で、レビュー前にコードを触ったら取り直す。",
+ "review": {
+  "status": "pending",
+  "note": "Codex レビュー未実施。Supervisor が eval 後・昇格前に knowledge/REVIEW_CHECKLIST.md の 7 観点で実施し、findings/blocking_resolved/candidate_sha256 をここに記録する。placeholder（捏造しない）。",
+  "findings": []
+ }
+}

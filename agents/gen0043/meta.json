@@ -1,0 +1,59 @@
+{
+ "gen": "gen0043",
+ "parent": "gen0042",
+ "exp": "EXP0043",
+ "date": "2026-09-06",
+ "track": "H1（最優先）— 棄却済み gen0035（SW 全面イチゴ 31 枚）と gen0042（労働 open major 掃除）の合流。互いの棄却理由（gen0035=31 枚を回す手数が無い／gen0042=掃除の効く余地が小さい）を打ち消す。",
+ "hypothesis": "gen0035 が SW 31 枚で棄却されたのは『31 枚を回す unit-hour が足りず取りこぼす』からだった。gen0042 の労働掃除（FIX0004 種の幽霊予約・FIX0005 farmer/所有者の相互停止）で取りこぼしを塞げば 31 枚が回り、イチゴ（出口の詰まっていない需要律速でない品目、`2026-09-06_which-market-is-actually-closed.md`）の生産量が増える。イチゴのタイル数が増えるほど FIX0004/0005 の症状が再発しうるので、掃除の潜在価値がここで顕在化しうる（gen0042 単独では王者比マージン検出不能だった）。生産量律速の追加要因＝生産日の水＋肥料ペアの取りこぼし（FIX0006・1 収穫 1.75u ＜ 強帯 1.99u）も同時に塞ぐ。hands は増やさない（増員は EXP0038/0039 で −$8,656 確定棄却）。イチゴ価格床ペース機構（gen0041 LIVING_EXITS）は持ち込まない（cycle4 で空振り確定）。",
+ "source": "state/HANDOFF.md『次の一手』H1。棄却済み gen0035（EXP0035）＋掃除 gen0042（EXP0042）。分析 knowledge/analysis/2026-09-06_loss-vs-extremely-sus.md（イチゴ 94×1.75 vs 132×1.99・tile_util 68% vs 93%）／2026-09-06_which-market-is-actually-closed.md（イチゴは需要律速でない）。",
+ "changes": [
+  "(a) 作付けを gen0035 の SW 全面イチゴ diff で再適用。MELON: SW 4 枚（y=5, x=0-3, from_day 10）を削除（NW 8 枚は維持）。STRAWBERRY: SW を全面イチゴにして 27→31 枚（y=5, x=0-3 を追加、from_day 10）。WHEAT: SW y=5 の d19 小麦再利用 4 枚を削除（そこは恒久イチゴになるため）。gen0035 は gen0034 系、gen0043 は gen0036 系なので単純 diff ではなく、タイル集合だけを gen0042 の zone/quadrant/window 構造に移植し、労働掃除・訪問完了などの機構は温存した。",
+  "(b) STRAWBERRY 植付窓を (4,13)→(4,15) に延長（d15 植え → age10 d25 初産で d29 まで隔日 3 回）。加えて d11-15 の空きタイル FALLBACK を WHEAT→STRAWBERRY（SW 解放後でイチゴ生産余地が最大の帯）。d16 以降・d10 以前は従来どおり小麦。イチゴは ongoing で試合終了までタイルを占有するので、この帯だけ fallback の予約対象を soon(5 日) ではなく残り全日にし、後続の d19 小麦ブロックを恒久イチゴが潰さないようにした（perm フラグ）。",
+  "(c) FIX0006（同根）: イチゴ生産日にまだ水やり前の株でも、同ターンに bonus_water（生産日の水やり・層2）が出るので、施肥を FERT_PRI（層4・PLANT の後）ではなく FERT_PRI_PAIR（層2）に上げ、同じ訪問で水＋肥料の対を閉じる（`pri = FERT_PRI_PAIR if (watered or bonus_water) else FERT_PRI`）。visit_ok=False の帯（最終日・植付締切）は day<FINAL_DAY で従来どおり除外し触らない。melon/wheat の harvest-vs-water 側は gen0032 の訪問完了で解消済みなので触らない。"
+ ],
+ "excluded": "イチゴ価格床ペース機構（gen0041 LIVING_EXITS / glut_headroom）は持ち込まない（cycle4 でイチゴは需要律速で床に落ちない＝空振り確定）。hands 増員も入れない（EXP0038/0039 で −$8,656 確定棄却）。melon/wheat の in-place HARVEST 持ち上げ（FIX0006 の visit_ok=False 帯）は植付締切と競合するため意図的に除外。",
+ "smoke": "vs starter s42/s7/s100 で両者 DONE（エラー 0）。check_fixes: applied 7/7 検出（FIX0001-0006・0011）・回帰 0・open 6。audit_replay: unfed/uncared = 0（d1-28）全シード。micro_audit --assert: noop_total=0・unfed_days=0・uncared_days=0 すべて OK。NG（inplace_share・last_water_hour・strawberry_yield・tile_util・wheat_yield・melon_yield s100）はいずれも FIX0013 の強帯到達目標で親 gen0042 も未達＝継承（規則違反ではない）。親 gen0042 比（同一シード）: STRAWBERRY 収穫 105→134 / 107→136 / 107→137（目標 110+ 達成）・イチゴ総産出 181→224u 等で +24%・tile_util 0.689→0.723 / 0.692→0.723 / 0.697→0.727（親比↑）・fertilize_count 42→50 / 40→49 / 43→57（(c) が施肥を増やした）。MELON 収穫 15→11（SW 4 枚削除の想定内）・WHEAT 収穫 80→72（d19 再利用 4 枚削除の想定内）。品目別 approx 売上デルタ（vs starter・price×qty 近似）: STRAWBERRY +$8.5k/+12.0k/+11.3k・MELON −$4.7k/−4.9k/−5.1k（想定内）・MILK は産出同一(COW 収穫は banking で s100 のみ 62→40・yield_mean↑)で近似上の変動は売り時/スリッページ由来。profile max 0.00035s（1 秒 OK）。static_check OK。**スモークは動作確認専用（検出限界）。資金の判定は 50 シード eval のみ。**",
+ "status": "GATE_PENDING_EVAL",
+ "notes": "50 シード eval（baseline records/eval_gen0042.json、または王者確定後は eval_gen0036.json）を eval_queue に投入予定（Supervisor が積む）。未レビュー・未昇格。昇格前に Codex レビュー（gpt-5.6-sol / reasoning high）が要る。FIX0006 を applied 化した（control/fixes.json / knowledge/FIXES.md）。sources は指摘の出所（gen0024#1）を規約どおり保ち、gen0043 は first_fixed_in / applied_since で記録した（--audit の dangling 検査は sources=genNNNN#N を要求し gen0043 は未レビューで review.findings が空なため）。",
+ "mechanisms": [
+  {
+   "name": "strawberry_full_sw_31",
+   "since": "gen0043",
+   "what": "SW（x=0-4, y=5-9）を全面イチゴにし、SW メロン 4 枚とその d19 小麦再利用を削除。イチゴタイル 27→31 枚。",
+   "constants": {"strawberry_tiles": 31, "melon_tiles": 8, "wheat_tiles": 28, "sw_row_y5_x": [0, 1, 2, 3]},
+   "origin": "tuned",
+   "ablation": "records/eval_gen0042.json（この作付けを外した版＝親 gen0042 の 12 メロン/27 イチゴ/32 小麦）",
+   "why": "イチゴは需要律速でない（出口が詰まっていない）品目。メロンは過剰側で d21-23 に暴落投げ。SW をメロン/小麦からイチゴに振り替えて生産量を上げる。gen0035 で単独棄却されたが、掃除で unit-hour の取りこぼしを塞げば 31 枚が回るという仮説"
+  },
+  {
+   "name": "strawberry_window_4_15",
+   "since": "gen0043",
+   "what": "STRAWBERRY の植付窓を (4,13)→(4,15) に延長",
+   "constants": {"window": [4, 15]},
+   "origin": "derived",
+   "ablation": "records/eval_gen0042.json（窓 (4,13)）",
+   "why": "d15 植え → age10 で d25 初産、以後隔日で d29 まで 3 回産む。d15 が d29 収穫のなお有効な限界（LAST_PLANT_DAY=25 の枠内）"
+  },
+  {
+   "name": "strawberry_fallback_d11_15",
+   "since": "gen0043",
+   "what": "d11-15 の空きタイル FALLBACK を WHEAT→STRAWBERRY。この帯だけ fallback の予約対象を soon(5 日) ではなく残り全日にする（perm）。d16 以降・d10 以前は小麦。",
+   "constants": {"straw_fallback_days": [11, 15], "fallback_cycle_days": 5},
+   "origin": "tuned",
+   "ablation": "records/eval_gen0042.json（fallback は常に WHEAT）",
+   "why": "SW 解放後でイチゴ生産余地が最大の帯。イチゴは ongoing で恒久占有するので、後続の計画タイル（d19 小麦ブロック等）を潰さないよう予約範囲を残り全日に広げる。d16+ は age4 回転の小麦に戻す（計画地が空くまでに収穫が終わる）"
+  },
+  {
+   "name": "fert_pair_on_prodday",
+   "since": "gen0043",
+   "what": "FIX0006: イチゴ生産日にまだ水やり前でも同ターンに bonus_water が出るので、施肥を FERT_PRI_PAIR(層2) に上げ水＋肥料の対を同じ訪問で閉じる",
+   "constants": {"fert_pri_pair": 2.06, "fert_pri": 2.88, "straw_prod_ages": [9, 11, 13, 15]},
+   "origin": "derived",
+   "ablation": "records/eval_gen0042.json（未水やり株は FERT_PRI 層4 のまま）",
+   "why": "水やり(層2)は済むのに施肥が層4(PLANT の後)で後回しになり、未施肥のまま +1 止まりになる株が出て 1 収穫あたり 1.75u（強帯 1.99u）。水も同ターンに撒くと分かっているので同じ層で対を閉じる。visit_ok=False の帯は day<FINAL で従来どおり除外"
+  }
+ ],
+ "mechanisms_doc": "この配列は親 gen0042 からの差分だけ。gen0042 の差分（FIX0004/0005）は gen0042/meta.json、全機構の台帳は agents/gen0026/meta.json。FIX0003/FIX0011 は gen0041、土地(land_target)は gen0033、訪問完了は gen0032、ゾーン化は gen0026。",
+ "review": {},
+ "candidate_sha256": "f636e200d7cb4c5fded6e8aadb94a7bd7d2579e7d863ac9d73d64a5da845db8d"
+}

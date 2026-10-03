@@ -1,0 +1,73 @@
+{
+ "gen": "gen0032",
+ "parent": "gen0031",
+ "exp": "EXP0032",
+ "date": "2026-09-06",
+ "track": "訪問完了 — 立っているタイルの日課仕事を、歩き出す前に終わらせる",
+ "hypothesis": "ユニットの選択キー `(pri_layer(eff), d, eff)` は層（＝仕事の種類）が第 1 キーで、距離はその下。したがって同じタイルに層の違う仕事が 2 つあると、農場のどこかに上位層の仕事が 1 つでも残っている限り、必ずその間に歩き出す。1 日の労働が「層ごとにゾーンを一巡」する形になり、動物タイル（FEED 層1 / CARE 層1 / HARVEST 層2 / COLLECT_FERTILIZER 層6）は構造的に 3 訪問になる。実測（seed42 d15 H3）は 1 タイル 3 訪問・移動 6 手。日課のタイル仕事は毎日リセットされ・場所が動かず・いつやっても 1 手なので、後回しにすると 2*距離 の往復が増えるだけ。立っているタイルのそれらを層 1（連続 unfed の緊急給餌の直下）に上げれば、往復が消えて同じ手数でより多くの仕事が回る。",
+ "source": "人の指摘（control 経由でなく対話）→ knowledge/analysis/2026-09-06_layer-sweep-root-cause.md",
+ "changes": [
+  "`eval_todos` の key を `(pri_layer(eff), d, eff)` から `(lay, crit, d, eff)` へ。`lay` は `d == 0` かつ op が DAILY_TILE_OPS (FEED/CARE/WATER/HARVEST/COLLECT_FERTILIZER/FERTILIZE) のとき `min(pri_layer(eff), VISIT_LAYER=1)`。**優先度表（LAYER_BOUNDS・各 todo の pri）は 1 つも変えていない。** タイルの中の順序は eff がそのまま決めるので FEED→CARE→HARVEST→COLLECT_FERTILIZER の順は保たれる。",
+  "`crit = 0 if pri in LOSS_PRIS else 1`（LOSS_PRIS = 0.0 連続 unfed の緊急給餌 / 1.0 枯死防止 WATER）。資産が今夜失われる仕事だけは距離より先に見る。**副作用**: 訪問完了と無関係な層 1 の中でも、枯死防止 WATER が通常 FEED/CARE より前に出るようになる（gen0031 は距離順）。同じ層の中で『失うものがある方が先』は規則から言えるので採用した。",
+  "訪問完了そのものを止める条件 `visit_ok`: (a) 最終日 FINAL_DAY（DROP→SELL が 1 ターンずれると全額落とす）、(b) `hour >= LAST_PLANT_HOUR` かつ PLANT todo が残っている時（当日の水やりが間に合わない植付は確定枯れ）。訪問完了は『後でやり直せる』が前提なので、今日の締切に張り付いた仕事がある間は行わない。",
+  "PLANT / DIG / BUILD / PLACE / 物流は DAILY_TILE_OPS に入れない（盤面の形を変える＝『毎日リセットされ場所が動かない』という前提が成り立たない）。",
+  "harness/micro_audit.py: inplace_share と tile_revisit_share を追加。あわせて**既存の日・時のずれを修正**（steps[t].action は steps[t-1].observation に対する行動なので、旧コードは全行動を 1 時間後ろの日・時に記録していた。last_water_hour などの既存指標にも効く）。訪問の切れ目は行動の種類ではなく**実座標が変わったか**で判定する（PASS・その場の物流・盤外 no-op MOVE で切らない）。",
+  "control/targets.json の micro に inplace_share 0.44 / tile_revisit_share 0.02 を追加（強帯 8 体の実測）。"
+ ],
+ "smoke": "vs rayk_c95 s42: 訪問し直し 231→34 回（0.214→0.032 /タイル日、強帯は 0.006-0.047）、その場で継続した畑仕事 32%→46%（強帯 0.32-0.48、6/8 が 0.46 以上）、移動の手数 3,418→2,668（−22%）、仕事の手数 1,937→2,017、mean_hop 1.025→0.85、3歩以上 16%→13%。収量は小麦 3.86→3.90 / メロン 6.00 / イチゴ 1.83→1.94、HARVEST 時の当日水やり率 小麦 0.968→1.000。noop 0、unfed/uncared 0。micro_audit --assert: inplace_share と tile_revisit_share が NG→OK。残る NG（last_water_hour / strawberry_yield / tile_util / wheat_yield）は gen0031 と同じ。",
+ "status": "EVAL_50_UNDETECTED",
+ "notes": "50 シード（1,100 戦）のゲートは pass=false＝**検出不能**。マージン −$986 [−2,972, +1,000] ／ 強帯マージン −$1,439 [−4,141, +1,262] ／ **自分の最終資金 +$1,207 [−1,489, +3,902]（強帯 +$1,918 [−1,488, +5,323]）** ／ rating +2.1 ／ エラー 0。24 シードではマージンの点推定が +$583 で、**シード数を増やすと符号が入れ替わる**＝マージンはこの変更に対して分解能が無い。自分の資金だけは 24/50 の両方で正（+$1,911 / +$1,207）。原因は町の抽選が両農場の空きタイル数に依存すること（knowledge/analysis/2026-09-06_town-draw-depends-on-empty-tiles.md）で、相手の最終資金もこちらと一緒に動く（24 シードで +$1,328）。seed 1019 vs boatlee_v16: 自分 $53.1k→$68.0k（+28%）／ 相手 $102.9k→$133.7k ／ マージン −$13.9k。解釈: 浮いた約 750 unit-hour を換金する先が今の農場に無い（tile_util 0.752→0.738、strong_slope −111）。**制約は出口（市場の吸収量）**という gen0029-0031 の結論と整合する。ミクロの無駄そのものは直っており（micro_audit --assert の新 2 指標が NG→OK）、出口を広げた世代と組で再測定する。",
+ "mechanisms": [
+  {
+   "name": "visit_completion",
+   "since": "gen0032",
+   "what": "立っているタイル（d==0）の日課仕事を層 1 に上げ、歩き出す前にその訪問を終わらせる",
+   "constants": {
+    "DAILY_TILE_OPS": "FEED / CARE / WATER / HARVEST / COLLECT_FERTILIZER / FERTILIZE",
+    "VISIT_LAYER": 1
+   },
+   "origin": "derived",
+   "ablation": "records/eval_gen0031_s24.json（この機構だけを外した版＝親）",
+   "why": "対象集合はエンジンの daily reset（kaggriculture.py 777-830）から機械的に決まる（毎日リセット・場所が動かない・1 手で終わる）。層 1 という値も『層 0 = 放置すると家畜が死ぬ』以外に立ち去る理由が無いことから決まるので、当てにいった定数ではない。gen0026 の pri_layer は層の中でだけ距離を効かせたが、層の境界を仕事の種類で引いたため同じタイルの 2 つの仕事が別の層になる構造は残っていた"
+  }
+ ],
+ "mechanisms_doc": "この配列は gen0031 からの**差分だけ**。全機構の台帳は agents/gen0026/meta.json を参照。",
+ "review": {
+  "date": "2026-09-06",
+  "reviewer": "codex",
+  "model": "gpt-5.6-sol / reasoning high",
+  "candidate_sha256": "e6b4e55adcf4c37575dd5bfceba37c5861cf4e5387a206d7d92b931363693509",
+  "checklist": "knowledge/REVIEW_CHECKLIST.md",
+  "diff_range": "agents/gen0031/main.py..agents/gen0032/main.py（+ harness/micro_audit.py, control/targets.json）",
+  "findings": [
+   {
+    "severity": "major",
+    "what": "訪問完了の層を代入していたため、立っているタイルの緊急給餌（pri 0.0, 層 0）が層 1 に降格し、隣の緊急給餌に距離で負けて家畜を 1 頭逃がす盤面が作れる。「層 0 には上げない」つもりが「層 0 から下げる」実装だった",
+    "resolution": "fixed"
+   },
+   {
+    "severity": "major",
+    "what": "立っているタイルの収穫（層 2→1）が、隣の枯死防止 WATER（pri 1.0, 層 1）に距離で勝ち、株が WEED になる。同型で LAST_PLANT_HOUR の最後の植付と FINAL_DAY の DROP→SELL も奪われる",
+    "resolution": "fixed"
+   },
+   {
+    "severity": "major",
+    "what": "harness/micro_audit.py の日・時が 1 時間ずれていた（steps[t].action は steps[t-1].observation に対する行動なのに、ループの d,h を t から作っていた）。**この世代より前からの既存バグ**で、last_water_hour などゲートに使う既存指標にも効いていた",
+    "resolution": "fixed"
+   },
+   {
+    "severity": "major",
+    "what": "新指標 tile_revisit_share の訪問の切れ目を行動の種類で判定していたため、同じタイルでの FEED→PASS→CARE や盤外への no-op MOVE を「訪問し直し」に数えていた。強帯の基準 0.047 もこのバグ由来の過大値だった",
+    "resolution": "fixed"
+   },
+   {
+    "severity": "minor",
+    "what": "targets.json の inplace_share 0.44 / tile_revisit_share 0.02 はゲーム規則からの導出ではなく強帯の実測。0.44 は帯の最低値（0.316）ではなく多数派の下限を採っている",
+    "resolution": "deferred"
+   }
+  ],
+  "blocking_resolved": true,
+  "note": "major 4 件はすべて実コード・実リプレイで再現してから修正した。codex が『問題なし』と確認した観点: 例外パス / 1 ターン 1 秒（追加は todo ごとの6 要素 membership のみ）/ 在庫予約と claim / ゾーン境界 / 早すぎる収穫（HARVEST todo は ripe・SELL_FLOORS・max_held の分岐でしか出ない）/ SHEDOP・UNIT の座標書き換えとの干渉（op が DAILY_TILE_OPS に入らない）。反証した指摘はなし。修正後の再測定でミクロ指標は維持（5 シード平均: inplace 0.461 / revisit 0.028 / noop 0 / unfed 0 / uncared 0）。**昇格しない世代だがレビューを通したのは、harness/micro_audit.py と control/targets.json が今後の全世代のゲートに使われるため。**"
+ },
+ "candidate_sha256": "e6b4e55adcf4c37575dd5bfceba37c5861cf4e5387a206d7d92b931363693509"
+}

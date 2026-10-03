@@ -1,0 +1,16 @@
+{
+  "generation": "gen0005",
+  "parent": "gen0004",
+  "lineage": "gen0003",
+  "track": "B",
+  "date": "2026-08-31",
+  "hypothesis": "EXP0004 で「土地+hand6+メロン一括」は中核経済をキャッシュ枯れで壊すと判明。メロン単体EVは正しい(低volumeで価格250に張り付く)ので、中核を乱さない lean メロンなら終盤だけ伸びるかを単離検証。",
+  "changes": [
+    "土地購入を撤去(LAND_MAX_EXTRA=0)",
+    "TARGET_HANDS 6→4(gen0003と同じ。増員はキャッシュを食う)",
+    "メロンは NW 空き7タイルのみ(NE 8タイルを削除)",
+    "メロン植付・種購入を day>=8 に限定し運転資金バッファ $1500→$2000"
+  ],
+  "eval": "records/eval_gen0005.json",
+  "experiment": "knowledge/experiments/EXP0005_lean-melon.md"
+}

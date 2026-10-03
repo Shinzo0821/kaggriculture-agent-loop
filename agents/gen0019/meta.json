@@ -1,0 +1,18 @@
+{
+  "generation": "gen0019",
+  "parent": "gen0017",
+  "track": "B",
+  "date": "2026-09-04",
+  "lineage": "STR系統2世代目（gen0017起算）",
+  "hypothesis": "gen0017（無肥料 shop-aware STR ピボット）は 34%/−$893 で棄却。ongoing 作物は『肥料が効く日 かつ 水やり済みの日』に scheduled 産出が 1→2 に倍化する（engine 実測）。STR を age9/13 に FERTILIZE すれば4収穫全部が2倍化し $960-1,600/タイルとメロン同等以上になり、STR ピボットが勝てるようになるはず。肥料は自軍動物の COLLECT_FERTILIZER 産で新規現金流出なし。",
+  "changes": [
+    "STRAWBERRY タイルが age∈{9,11,13,15} かつ fertilized_until_day<day で FERTILIZE todo(pri1.7)。<day ガードで実発火 age9/13 の2回/タイル、4収穫全部2倍",
+    "shed の FERTILIZER を PICKUP(pri0.6, 代表1ユニット)→FERTILIZE(need=FERT)",
+    "str_mode 中は COLLECT_FERTILIZER 優先度 4.0→2.7 で肥料供給確保（非STR時は従来4.0）",
+    "売却 reserve: str_mode かつ day<DUMP_DAY は 2×若STR枚数(age≤13) を残す。overflow/DUMP は例外"
+  ],
+  "eval": "records/eval_gen0019.json",
+  "experiment": "knowledge/experiments/EXP0019_str-fertilizer-double.md",
+  "result": "棄却: vs gen0018 36.5% Wilson[30.1,43.4] 平均-$913.6 / vs starter 100% / 400戦エラー0。倍化機構は正しく発火したが STR が自分の薄い市場(T=100,above1.60)を潰す＋肥料物流が労働を奪う構造欠陥。昇格ゲート(>55%)不通過・絶対資金増なしで提出も見送り。STR系統2世代連続棄却で打ち切り妥当。",
+  "gate": {"starter_ge_95": true, "champion_gt_55": false, "pass": false, "submitted": false}
+}

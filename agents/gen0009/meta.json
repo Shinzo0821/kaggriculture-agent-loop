@@ -1,0 +1,16 @@
+{
+  "generation": "gen0009",
+  "parent": "gen0008",
+  "track": "B",
+  "date": "2026-09-03",
+  "hypothesis": "負け分析 ep104768100: 上位帯は day20 以降に約$6k/日で加速し、最終盤は10 hands/3クアドラント/トマト18枚だった。こちらは4 hands/作物ゼロで$2k/日頭打ち。中核(動物経済)が資金化された後の段階的スケール再投資(hand追加+hinge作物トマト増設)が最重要の未装備レバー。gen0004(序盤の土地購入+メロン)の轍を避け、day>=12 かつ money>=6000 の資金化後にのみ NW 空きタイルへトマトを増設し、増員(4→6)で労働を賄えば下振れを崩さず頭を伸ばせる",
+  "changes": [
+    "段階投資ゲート scaling = day>=SCALE_DAY(12) かつ money>=SCALE_CASH(6000)。割ったら新規投資と増員を止める(既存トマトの水やり・収穫は継続)",
+    "トマト増設: NW 空き7タイル(y0の5枚+(0,1)(1,1))に day<=LAST_TOMATO_PLANT(18) まで植付。ongoing×4 で 4結実(age8-11=day26-29 まで間に合う)。トマトは元から ALWAYS_SELL のため売却側は gen0008 のまま",
+    "トマト種購入: scaling かつ money>=6000 のとき空きタイル分を1回3枚まで小分け購入(現金保護)",
+    "増員: 段階投資フェーズは TARGET_HANDS 4→SCALE_HANDS 6",
+    "土地購入はしない(gen0004 で local H2H では割に合わないと実証済み。単一変数=トマト作付けで gen0008 と比較)"
+  ],
+  "eval": "records/eval_gen0009.json",
+  "experiment": "knowledge/experiments/EXP0009_scale-reinvest-tomato.md"
+}

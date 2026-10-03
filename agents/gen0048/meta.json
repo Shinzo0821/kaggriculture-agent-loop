@@ -1,0 +1,86 @@
+{
+ "gen": "gen0048",
+ "parent": "gen0047",
+ "exp": "EXP0048",
+ "date": "2026-09-08",
+ "hypothesis": "carrot 窓内 WEED-DIG/PLANT を層2に再分類すれば、d24-27 の潤沢な IDLE hand-hour（反証実測§1: 層≤2 は 30%・13-24 IDLE/日）で DIG→PLANT が LAST_PLANT_HOUR(20) 前に回り、gen0047 の非発火（carrot 植付 0）を潰して carrot 2-3 個/枚を純増できる。期待 +$400-700（境界線上）。主目的は carrot 機構の end-to-end 発火実証（Stage B の前提）。",
+ "source": "knowledge/analysis/2026-09-07_carrot-nonfiring-and-next-lever.md §2 Stage A ＋ knowledge/analysis/2026-09-08_stagea-preflight.md。IDEA_POLICY §4（層所属の決め直し。数値 sweep ではない）。",
+ "changes": [
+  "§A-1: CROP_PLANS[\"CARROT\"][\"plant_pri\"] を 2.82（層4）→ 2.24（層2）に再分類。carrot 転作は収量を作る行動なのでイチゴ HARVEST（hpri 2.2）の直上に置く＝収穫がタイで勝ち、他作物 fallback（2.85）や WHEAT 計画（2.80）とは分離。この dict 値は carrot の PLANT todo 発行（line 821）でのみ参照され、他作物の plant_pri は 1 行も変えていない。",
+  "§A-2: 植付スケジューラで予定タイルを塞ぐ WEED を DIG する todo の pri を carrot だけ 2.6（層3）→ 2.22（層2）に条件付き再分類（`(2.22 if crop == \"CARROT\" else 2.6, ...)`）。他作物予定地の DIG は 2.6 のまま＝挙動不変。2.22(DIG) < 2.24(PLANT) < 2.25(層2上端)、両方 > 2.2(全 HARVEST) なので、層2 内で DIG が PLANT を先導し、収穫がタイで勝つ。",
+  "FIX0008 部分適用ブロック（carrot スコープの種先読み）はそのまま保持。water_pri/windows/tiles/last_plant_day/種購入/非 carrot コードは一切触っていない。"
+ ],
+ "status": "PROMOTED",
+ "smoke": "vs starter seed 7/14/42: エラー 0・両者 DONE・final_money [151122/161368/130253]（gen0047: [150711/161032/129621]、全 3 seed +$336〜+$632）。★FIRING CHECK: carrot PLANT が d24-27 で発火（seed 7/14/42 とも 7 件・全て d25-27。gen0047 は 3 seed とも 0 件）。carrot SELL は d28-29 に 78/78/82 units（gen0047 は収穫 0）。micro_audit --assert（seed 7/14/42）: noop_total=0 / unfed_days=0 / uncared_days=0（3 seed とも critical-three OK）。他 micro NG（inplace_share/last_water_hour/melon_yield/strawberry_yield/tile_revisit/tile_util/wheat_yield）は gen0045/0047 と同一集合＝FIX0013 強帯到達目標（--limit 対象）で本世代の新規回帰は 0（gen0047 と NG 集合・値がほぼ一致。strawberry_yield 1.629/1.629/1.729 と last_water_hour 23 は gen0047 と同値＝回帰なし）。profile mean/max=0.00024/0.01112s（1 秒 OK）。check_fixes applied 12/12・回帰 0・open 6（FIX0008 は carrot 部分適用のため意図的に open のまま）。 ★訂正(Codex P1-2): この『SELL 78/78/82 units』は市場注文の合算で、実際には各試合 6 個が最終日に carried のまま未換金（shed.CARROT=0）。発火の証拠は d24-27 の CARROT PLANT 7件＋eval の純マージン +$313 であって SELL units 数ではない。",
+ "leak_check": "d0-23 同一性。gen0048 の obs 軌跡（vs starter seed 7/14/42）を gen0046.agent と gen0048.agent の両方に流し、farmer/hands/market 出力を全ターン diff。総 diff 41/39/47 件、内訳 seed7 {d25:13, d26:6, d27:7, d28:15}／seed14 {d25:13, d26:6, d27:7, d28:13}／seed42 {d25:8, d26:10, d27:12, d28:17}、**d0-23 は 3 seed とも diff=0**（設計どおり carrot 窓(24,27)以前は親とバイト同一）。gen0047 と違い d28 に diff が出る＝carrot HARVEST/SELL の value driver が発火（gen0047 は収穫 0 で d28 diff 無し）。d24 も生存イチゴのみで diff=0（植付は d25 から）。",
+ "mechanisms": [
+  {
+   "name": "carrot_layer2_reclass",
+   "since": "gen0048",
+   "what": "gen0047 の fast_carrot_rotation を層2化して発火させる Stage A 修正。carrot 窓内の WEED-DIG（層3 2.6→層2 2.22）と PLANT（層4 2.82→層2 2.24）を『収量を作る行動』の経済クラス（イチゴ HARVEST と同層）に再分類。層2 内は DIG(2.22)<PLANT(2.24) で DIG が先導、両方>全 HARVEST(2.2) で収穫がタイで勝つ。他作物の DIG(2.6)/plant_pri は不変。P2（層 starvation で PLANT が LAST_PLANT_HOUR 前に回らない）の修正。",
+   "constants": {
+    "carrot_dig_pri": 2.22,
+    "carrot_plant_pri": 2.24,
+    "layer2_bounds": "[1.5, 2.25)",
+    "harvest_hpri": 2.2,
+    "other_crops_dig_pri": 2.6,
+    "other_crops_plant_pri": "unchanged"
+   },
+   "origin": "observed",
+   "ablation": "records/eval_gen0047.json（この機構を外した版＝親 gen0047。carrot 機構は在るが層3/4 で非発火・植付0）／さらに carrot 機構ごと外すと gen0046",
+   "why": "gen0047 で carrot DIG(層3)/PLANT(層4) がイチゴ HARVEST(層2) の d26-27 ピークに starve され植付 0 に終わった（EXP0047 finding）。反証実測§1 で d24-27 の層≤2 稼働は 30%・13-24 IDLE hand-hour/日と判明。行動の層所属をゲームの経済クラス（収量を作る＝層2）で決め直せば IDLE の中で DIG→PLANT が LAST_PLANT_HOUR 前に回る。数値 sweep ではなく IDEA_POLICY §4 の層所属の決め直し。"
+  },
+  {
+   "name": "fast_carrot_rotation",
+   "since": "gen0047",
+   "what": "4 産を終えて engine が WEED 化したイチゴタイル（STRAWBERRY 計画から早出し2枚を除いた 25 枚）だけを d24-27 に DIG→CARROT 化する。CROP_PLANS[\"CARROT\"]（窓 (24,27)・from_day 24・last_plant_day 27）＋ per-crop 植付期限の一般化＋種購入 carrot 追加＋収穫 carrot 分岐＋BONUS_WINDOW/MAX_YIELD。触るのは kind=WEED/None のタイルのみ（生存イチゴは植付スケジューラが素通り＝engine が WEED 化の唯一の判定者）。**gen0047 では層3/4 で非発火。gen0048 の carrot_layer2_reclass で層2化して発火化（植付 7/seed・収穫 78-82 units）**。plant_pri は 2.82→2.24、DIG は 2.6→2.22 に更新（層2化）。",
+   "constants": {
+    "window": "(24,27)",
+    "last_plant_day": 27,
+    "from_day": 24,
+    "plant_pri": 2.24,
+    "dig_pri": 2.22,
+    "water_pri": 3.02,
+    "seed_cost": 20,
+    "buy_cap": 12,
+    "tiles_count": 25,
+    "BONUS_WINDOW": "(2,3)",
+    "MAX_YIELD": 3
+   },
+   "origin": "observed",
+   "ablation": "records/eval_gen0046.json（この機構を外した版＝gen0046。carrot 無し）",
+   "why": "LB #1 両席の実測（ep106191684/ep106190768: d24 開始・終盤自陣 WEED≈0）を取り込む。gen0047 では層 starvation で非発火だったが、gen0048 の層2化で d24-27 の IDLE hand-hour に DIG→PLANT が回るようになった。"
+  }
+ ],
+ "mechanisms_doc": "gen0046 から継承した 5 機構（funded_wool_expansion・feed_buffer_lookahead_on_expansion・expansion_hands_bump・market_budget_reconcile・beta_harvest_unlock_gate）は変更なし。gen0047 の fast_carrot_rotation を継承し carrot_layer2_reclass（gen0048 新規）で層2化して発火させた。継承機構の台帳は gen0046/meta.json を参照（本世代は gen0047 のコピー＋carrot 優先度 2 箇所の再分類のみ・継承機構は 1 行も触っていない）。FIX0008 は carrot 部分適用のため台帳 open のまま。",
+ "candidate_sha256": "3b7aa7dcf145b28ffcd5bbd3e49cd6a99f332b7cc947de299bae019ff6830b08",
+ "notes": "系譜の明確化: 現王者は gen0045（≡gen0046+FIX0018）。gen0047 は carrot 機構を初めて載せた基盤だが層3/4 で非発火（BLOCKED_NONFIRING）。carrot 機構のコードは gen0047 にしか無いため、gen0048 は**コード的には gen0047 の子**（親コピー＋2 箇所の優先度再分類）で P2（層 starvation）を修正する。cycle1 の計画メモは『親 gen0046』と書いたが、これは王者系譜の意味であってコード基盤は gen0047 が正しい（正直に記録）。eval は Supervisor がキューに積む（本世代からは submit/approve/commit しない）。Codex レビュー未実施（昇格判定は eval 後）。candidate_sha256 は現 main.py の値。",
+ "review": {
+  "date": "2026-09-07",
+  "reviewer": "codex",
+  "model": "gpt-5.6-sol / reasoning high",
+  "candidate_sha256": "3b7aa7dcf145b28ffcd5bbd3e49cd6a99f332b7cc947de299bae019ff6830b08",
+  "checklist": "knowledge/REVIEW_CHECKLIST.md",
+  "diff_range": "agents/gen0045/main.py..agents/gen0048/main.py",
+  "thread": "<redacted-id>",
+  "findings": [
+   {
+    "severity": "minor",
+    "what": "P1-1: 最終日 d29 に carrot の bonus WATER が発行されない（bonus_water も通常 WATER も day<FINAL_DAY(29) ガードの内側）。engine は age2-3 の WATER 時だけ増収するので d27 植え=d29 age2 は 1 個止まり・meta の『2-3個/枚』想定を下回る。3 smoke seed で d29 WATER 0・d27 植え yield_units=1 を確認。carrot 純増は eval で +$313 と実測済みで下振れではなく forgone upside",
+    "resolution": "deferred (FIX0019 open 登録・sources gen0048#0。単独修正は最終日清算 FIX0020 を悪化させるので gen0050 で同時対処)"
+   },
+   {
+    "severity": "major",
+    "what": "P1-2: 最終日 d27 植え carrot を d29 に収穫した hand がシェッドに届かず SELL が無言 no-op。3 smoke seed とも最終 carried.CARROT=6/shed.CARROT=0（replay で確認・~$300/試合の未換金）。かつ市場売却が carried 在庫を全量 DROP 可能として SELL 数に加算するため実行されない幽霊注文が出る＝meta の『carrot SELL 78-82 units』は反復注文の合算で実約定量ではない。carrot 最大のレバー。Stage B(gen0049) では carrot 枚数増で増幅",
+    "resolution": "deferred (FIX0020 major open 登録・sources gen0048#1。修正は main.py の SHA を変え eval+レビューを無効化するため、評価済みアーティファクトを昇格し gen0050 の売買世代で対処)"
+   },
+   {
+    "severity": "minor",
+    "what": "P1-3: WEED の carrot 種先読みが DIG の実行可能性を予約せず、最終窓 d27 h20+ でも DIG todo が残る。3 smoke seed とも種 9 買・PLANT 7・最終 seeds.CARROT=2（各試合約$40 の死に種）。既存 FIX0008(open) の carrot スコープでの再現",
+    "resolution": "deferred (既存 FIX0008 open に sources gen0048#2 を追記。最終窓日は未実行 WEED を先読み購入から除外＝gen0050 で対処)"
+   }
+  ],
+  "review_note_p2": "P2(trivial・コメントのみ・修正すると main.py SHA が変わり eval 無効化のため未修正): (1) 2.22/2.24 は同層内では距離が先なので『同距離タイブレーク』が正確（コメントは『全体順序』と読める）。機構は同距離で bonus WATER 2.19<HARVEST 2.2<DIG 2.22<PLANT 2.24 と意図どおり動く。(2)『decay 済みのみ』は水切れ死・自然雑草でも WEED になるため厳密には強いが、WEED/None にしか DIG を出さない＝生きたイチゴを掘らない保証は成立。(3) MAX_YIELD[CARROT]=3 は無施肥上限として正しいが engine 実定数は 4 でコメントの『engine max_yield』は不正確。いずれも機能バグでなく gen0050 の実装時にコメント整理する",
+  "blocking_resolved": true
+ }
+}

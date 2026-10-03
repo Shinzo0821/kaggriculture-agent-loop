@@ -1,0 +1,15 @@
+{
+  "generation": "gen0017",
+  "parent": "gen0013",
+  "track": "B",
+  "date": "2026-09-04",
+  "hypothesis": "LB 敗戦分析 cycle3-5 で3サイクル連続、敗因＝『イチゴ(STR)を植えていない』。STR は8ショップ型中4型（BRUNCH/ICE_CREAM/SMOOTHIE/FARMERS_MARKET）が需要で1店6個/日を恒久吸収するため、需要店≥2 の抽選なら供給(7タイル×4収穫=28個)を吸収が大きく上回り価格が base$120 以上に張り付く。メロン2波目（期待値 ~$5-8k だが両者供給で暴落しやすい）を、需要に裏打ちされた STR に shop-aware で差し替えれば d19-29 の収入傾きが立つ",
+  "changes": [
+    "STR 需要店 ≥2（unlocked_shops、毎ターン再計算）で STR ピボット発動",
+    "発動時: メロンタイル(7)の空きに STRAWBERRY 植付（期限 d13 = age10/12/14/16 の4収穫全取り最終日、種$100、MELON_CASH_BUFFER 維持）",
+    "d10-11 未発動は植付・種購入とも保留（d12 朝に4回目抽選が日境界反映されるのをエンジン確認済み）、d12 で <2 なら即メロン2波復帰（不発コスト最大2日遊休）",
+    "STR タイルは yield_units>0 で即収穫（pri 1.9、decay 対策）。水やり・売却(ALWAYS_SELL)は既存体系のまま"
+  ],
+  "eval": "records/eval_gen0017.json",
+  "experiment": "knowledge/experiments/EXP0017_shop-aware-str-pivot.md"
+}

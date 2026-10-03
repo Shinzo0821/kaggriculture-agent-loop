@@ -1,0 +1,6 @@
+{"ts": "2026-09-06T08:23:07+00:00", "kind": "session_limit", "cycle": "6", "model": "opus", "detail": "検出語 ['session limit'] / rc=1"}
+{"ts": "2026-09-06T19:54:44+00:00", "kind": "session_limit", "cycle": "6", "model": "opus", "detail": "検出語 ['session limit'] / rc=1 / リセット 2026-09-07T05:10:00+09:00"}
+{"ts": "2026-09-07T18:09:15+00:00", "kind": "session_limit", "cycle": "4", "model": "opus", "detail": "検出語 ['session limit'] / rc=1 / リセット 2026-09-08T03:10:00+09:00"}
+{"ts": "2026-09-08T17:56:46+00:00", "kind": "session_limit", "cycle": "5", "model": "opus", "detail": "検出語 ['session limit'] / rc=1 / リセット 2026-09-09T06:40:00+09:00"}
+{"ts": "2026-09-10T01:26:05+00:00", "kind": "session_error", "cycle": "6", "model": "opus", "detail": "is_error=True subtype=success parse_error="}
+{"ts": "2026-09-13T22:38:35+00:00", "kind": "session_error", "cycle": "1", "model": "fable", "detail": "is_error=True subtype=success parse_error="}

@@ -1,0 +1,15 @@
+{
+  "generation": "gen0003",
+  "parent": "gen0002",
+  "track": "A",
+  "date": "2026-08-31",
+  "hypothesis": "gen0002の負けはミルク需要店舗の乱数(0-2軒→$29-33k)。動物購入を需要由来キャップ付き貪欲(牛2+6m/羊2+12y/鵞鳥2+3e)にし、プレミアム品売却を市場在庫I0回帰でペーシング、構造物を動的建設にすれば外れ乱数の下振れが上がる",
+  "changes": [
+    "動物購入: 固定シーケンス→unlocked_shops由来のキャップ付き貪欲(店舗ゼロ時は自然に2-2-2分散)",
+    "MILK/WOOL売却: 床値未満ではmax(0, I0+10-市場在庫)を予算とするペーシング",
+    "PASTURE/COOP: 事前固定10タイル→保有動物+次購入1頭ぶんの動的建設",
+    "種別の購入期限: COW day18 / SHEEP day19 / GOOSE day22"
+  ],
+  "eval": "records/eval_gen0003.json",
+  "experiment": "knowledge/experiments/EXP0003_demand-adaptive-animals.md"
+}

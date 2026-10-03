@@ -1,0 +1,14 @@
+{
+  "generation": "gen0012",
+  "parent": "gen0010",
+  "track": "B",
+  "date": "2026-09-04",
+  "hypothesis": "LB負け分析(2026-09-04): Lorenzo Regalado $160k は d0メロン12タイル即植え→d10一括売却+$14.4k→中核再投資の『資本スプリント』。EXP0004 の敗因は同時投入のキャッシュ枯れ(順序ミス)でありメロンというレバーではない。gen0007 のメロンモジュールを MELON_START_DAY 8→0 で移植し、d0植え(種$560=開始資金の19%)→d10収穫42個→即売却~+$9k で資金化ゲートを確実に点火、2周目(d10-11再植え→d20-21収穫)で絶対資金を伸ばす。狙いは H2H 勝率より LB が報いる絶対資金スケール(gen0010 は線形$2k/日で複利上位に後半突き放される)",
+  "changes": [
+    "gen0007 のメロンモジュールを gen0010 に移植(MELON_TILES=NW空き7タイル・中核と排他、収穫pri1.9、水やりpri3.2/枯死防止1.05、種購入は MELON_CASH_BUFFER=$2000 を残す分だけ)",
+    "MELON_START_DAY 8→0 (d0 開幕スプリント。gen0007 との唯一のパラメータ差)",
+    "gen0010 の中核ロジック(動物・売却・増員・小麦)は完全に不変"
+  ],
+  "eval": "records/eval_gen0012.json",
+  "experiment": "knowledge/experiments/EXP0012_melon-capital-sprint.md"
+}

@@ -1,0 +1,100 @@
+{
+  "gen": "gen0061",
+  "parent": "gen0058",
+  "date": "2026-09-19",
+  "exp": "EXP0061",
+  "hypothesis": "親 gen0058 の到達可能性ゲート（今日中に着いて 1 手打てない todo は選ばない）には、昇格前 Codex レビューが見つけた 3 つの穴が残っている。いずれも『予算式が場所によって違う』という同じ形の欠陥で、新しい機構ではなく**既にある式の適用範囲の問題**: (FIX0029) ゲートの `day < FINAL_DAY` carve-out が終端規則と逆向き — 最終日は『届かなくても運ぶ』日ではなく、位置も在庫も持ち越せないので届かない移動の価値は通常日以上にゼロで、しかも最終行動ターンは h22。(FIX0028) FIX0011 の COLLECT_FERTILIZER 抑制が h22 以降しか見ておらず、h21 に遠いタイルで回収すると DROP の手番が無い。(FIX0031) ZWHEAT / ZFERT の一括 PICKUP は `eval_todos` の外で比較されるのでゲートを丸ごと迂回し、gen0058 の実測では真の h23 残存 MOVE 7/6/10 のうち 6/6/9 がシェッド方向 ＝ 今日はもう積めない物を取りに歩いている。3 件とも『歩き出しても今日は実行できない行動』を消す方向で、追加の定数は 0 件。",
+  "mechanisms": [
+    {
+      "name": "action_hours_left",
+      "since": "gen0061",
+      "what": "今日この時刻から数えて残り何ターン行動できるかを 1 箇所で決める関数。通常日は `HOURS_PER_DAY - 1 - hour + 1`（= gen0058 と厳密に同値）、最終日だけ `LAST_ACTION_HOUR(=22) - hour + 1`。到達可能性ゲート・`_owner_can_come`（所有者の保護）・FEED/CARE の最寄り判定 `dmin` の 3 箇所がこの同じ値を共有する。gen0058 が塞いだ『誰も来ない穴』は保護の対象集合と最寄り判定の対象集合のズレだったので、最終日だけ予算を狭めるときも 3 箇所を同時に狭めないと最終日に同じ穴が開く。",
+      "constants": {
+        "式": "end_hour = LAST_ACTION_HOUR if day >= FINAL_DAY else HOURS_PER_DAY - 1",
+        "新規定数": "0 件（LAST_ACTION_HOUR は FIX0011 が既に持っていた）"
+      },
+      "origin": "FIX0029（gen0058#1・Codex gpt-5.6-sol）",
+      "engine_evidence": "kaggriculture.py の interpreter は step 718（d29 h22）の行動を処理した直後に `step >= cfg.episodeSteps - 2` で DONE を立てる。リプレイ index 719（d29 h23）にも行動は記録されるが冒頭の `if env.done: return state` で**一度も解釈されない**（本世代のスモークで実測: index 719 の行動は両者とも出力されるが reward は 718 の処理で確定している）。"
+    },
+    {
+      "name": "final_day_fertilizer_deadline",
+      "since": "gen0061",
+      "what": "最終日の COLLECT_FERTILIZER を『回収 → シェッドへ歩く → DROP』が h22 までに終わる時だけ出す。条件は移項すると `hour >= LAST_ACTION_HOUR - shed_d` ＝ **FIX0011 の締切を帰り道のぶんだけ前倒しした形**で、shed_d=0 のとき FIX0011 と厳密に一致する（FIX0028 は FIX0011 の一般化）。非最終日の挙動は不変。",
+      "constants": {
+        "式": "hour + shed_d + 1 <= LAST_ACTION_HOUR",
+        "新規定数": "0 件"
+      },
+      "origin": "FIX0028（gen0059#1・Codex gpt-5.6-sol）"
+    },
+    {
+      "name": "zone_pickup_reachability",
+      "since": "gen0061",
+      "what": "ZWHEAT（自ゾーンの給餌用小麦）と ZFERT（自ゾーンの肥料）の一括 PICKUP 候補にゲート本体と同じ `d + 1 <= hours_left` を課す。この 2 つは `eval_todos` の戻り値と `best_key` を直接比較する形で書かれているためゲートを通っていなかった。落ちた場合は従来どおり `eval_todos(False)`（全体 fallback）へ回る。`LOSS_PRIS` carve-out は付けない（緊急給餌そのものではなく材料の補充なので）。",
+      "constants": {
+        "式": "d + 1 <= action_hours_left(day, hour)",
+        "新規定数": "0 件"
+      },
+      "origin": "FIX0031（gen0058#3・Codex gpt-5.6-sol）",
+      "caution": "**本世代で唯一、全日に効く変更。** 後述の実測どおり FIX0028/FIX0029 は資金に 1 ドルも効かないので、50 シード評価で観測される差は事実上すべてこの機構に帰属する。"
+    }
+  ],
+  "gauntlet": {
+    "smoke": {
+      "opponent": "agents/gen0058/main.py",
+      "seeds": [
+        7,
+        42,
+        123
+      ],
+      "final_money_self": [
+        74823,
+        60189,
+        69348
+      ],
+      "final_money_opp": [
+        72991,
+        59954,
+        69189
+      ],
+      "errors": 0,
+      "mirror_baseline": {
+        "what": "gen0058 vs gen0058 の同一シード（player0 スロットの有利分を測る対照）",
+        "margin": [
+          2811,
+          992,
+          1469
+        ]
+      },
+      "paired_smoke_margin_delta": [
+        -979,
+        -757,
+        -1310
+      ],
+      "caveat": "**スモーク 3 シードは動作確認専用。方向判断には 24 シードが要る**（knowledge/analysis/2026-09-05_seed-detection-limit.md）。上の −$1,015 平均を『悪化した』と読んではならない。ただし 3/3 とも同符号なので 50 シード評価の主要な確認対象にする。"
+    },
+    "micro_assert": {
+      "critical_three": "unfed_days / uncared_days / noop_total は 3 シードとも 0",
+      "tile_revisit_share": [
+        0.0161,
+        0.0182,
+        0.0188
+      ],
+      "note": "親 gen0058 の同条件（mirror・player0）seed123 は 0.0215 なので新規 NG は無い。残る NG（inplace_share / last_water_hour / melon_yield / strawberry_yield / tile_util / wheat_yield）は親と同じ慢性項目で本世代の回帰ではない。"
+    },
+    "profile": {
+      "mean_s": 0.00139,
+      "p99_s": 0.01037,
+      "max_s": 0.11028,
+      "ok_max_lt_1.0": true
+    },
+    "static_check": "OK",
+    "check_fixes": {
+      "applied_detected": "14/15",
+      "known_miss": "FIX0030（applied_since gen0060）。**gen0061 の親は gen0058 なので構造上継承しない** —— gen0060 は未評価の兄弟枝で、王者ではない。ここで先取りすると gen0060 の測定と重複し本世代の帰属も割れるため意図的に入れていない。CLAUDE.md の『世代は不変で新世代は親のコピーなので、非昇格世代に入れた修正は親が変わると消える』そのもの。gen0060 が昇格したら合流世代が両方を持つ。"
+    }
+  },
+  "candidate_sha256": "6b55ff1283c13df980604198cd6ded3a4ecc4a81cbc6b12df830731a71c5abc3",
+  "review": null,
+  "eval": null,
+  "exp_file": "knowledge/experiments/EXP0061_final-day-and-pickup-reachability.md"
+}

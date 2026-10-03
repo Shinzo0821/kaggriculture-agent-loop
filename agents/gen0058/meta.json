@@ -1,0 +1,91 @@
+{
+  "gen": "gen0058",
+  "parent": "gen0051",
+  "date": "2026-09-19",
+  "exp": "EXP0058",
+  "hypothesis": "我々の律速は『何を植えるか』ではなく『労働をいくらで買うか』である（EXP0038/0053/0057 の 3 点: 層を上げて労働を買った 2 回が負け、労働中立の 1 回だけが中立）。そこで今回は労働を増やさず**捨てている労働を拾う**。実測（knowledge/analysis/2026-09-19_move-budget-decomposition.md）で、王者の MOVE 3,275h のうち **375-500h が日跨ぎで消える歩行**（実勢 SOTA の 7turn は 59h）であり、エンジンの daily reset（_end_of_day が hands=[] と farmer=spawn を実行）により**歩いた位置は翌日に残らない**ので、h+d>23 になる歩行はその日の unit-hour を丸ごと捨てている。うち 259-367h は歩き出した時点で『今日中に着いて打てる空いた仕事』が盤上に実在した。到達可能性で todo を絞れば、その分が代替の仕事へ振り替わるはず。",
+  "mechanisms": [
+    {
+      "name": "reachability_gate",
+      "since": "gen0058",
+      "what": "ユニット割当（eval_todos）で、`距離 + 1 > HOURS_PER_DAY - hour` の todo を候補から外す（今日中に着いて 1 手打てない仕事は選ばない）。ただし (a) FINAL_DAY は除外（清算の経済が別。carried_item と SELL が FIX0003/FIX0020 で絡む）、(b) LOSS_PRIS（連続 unfed の緊急給餌 0.0 / 枯死防止 WATER 1.0）は除外（資産が今夜失われる仕事まで降りると配置が崩れる）。併せて FEED/CARE の最寄り判定の対象集合も同じ到達可能性で揃える（揃えないと『最寄りはゲートで降り、他は最寄りでないで降りる』穴ができる＝FIX0005 と同型）。",
+      "constants": {
+        "式": "d + 1 <= HOURS_PER_DAY - hour（`_owner_can_come` が既に使っている式と同一。新しい定数を持ち込まない）",
+        "除外": "day >= FINAL_DAY(29) / pri in LOSS_PRIS(0.0, 1.0)"
+      },
+      "origin": "derived（エンジンの _end_of_day: kaggriculture.py 872-881 で farm['hands']=[] と farmer=spawn）",
+      "ablation": "records/eval_gen0051.json（親＝ゲートが無い版）。同一シードの行動会計が直接の対照（下の measured）。",
+      "why": "IDEA_POLICY §4『労働割当の構造変更』。閾値の新設ではなくエンジン規則からの導出。**期待値は正直に小さい**: スモーク実測で MOVE は −314〜−423 h・h23 の全損 MOVE は −41〜−57% 減ったが、**空いた時間の大半は PASS に流れて生産行動は +3〜+52 しか増えていない**。＝ B（本世代）は無駄足を消すが、消した時間を仕事に変えるのは A（所有権の解除規則・farmer のゾーン参加）の役目で、A は次世代（gen0059）。**本世代が『検出不能』で終わったら、それは「無駄足を消すだけでは金にならない＝律速は割当規則である」という情報として読む。**",
+      "measured": "vs starter 3 seed（決定論的な行動会計。資金の判断には使わない）: MOVE 3450→3117 / 3277→2963 / 3364→2941、**h23 発の MOVE（定義上全損）181→7 / 149→6 / 170→10**（★2026-09-19 c6 訂正: 当初 157→92 / 154→74 / 175→76 と記録したのは action と observation を 1 ステップずらして数えた誤り。正しい対応は「d 日 h 時の行動 = steps[d*24+h+1]['action']」。**誤りの向きは効果の過小評価**で、正しく数えると END_OF_DAY の MOVE も 425→21 / 366→14 / 459→24 h）、生産行動 2891→2934 / 2636→2639 / 2614→2666、**PASS 1145→1435 / 1250→1561 / 1185→1556**、生産行動あたりの MOVE **1.193→1.062 / 1.243→1.123 / 1.287→1.103**（実勢 SOTA の 7turn は 0.81）。"
+    }
+  ],
+  "gauntlet": {
+    "critical_three": "3 seed とも noop/unfed/uncared 全 0",
+    "micro_ng": "6 件・親 gen0051 と同一集合（新規回帰 0）",
+    "check_fixes": "applied 14/14・回帰 0",
+    "static_check": "OK",
+    "profile": "ok_mean_lt_0.1 / ok_max_lt_1.0 とも true",
+    "design_iterations": "3 版を測って選んだ: (v1) 全 todo をゲート → seed7 で unfed/uncared 各 1・d24 uncared 1（NG）／ (v3) 到達可能性を層より先に置く → unfed 14-19 日（論外）／ **(v2=採用) LOSS_PRIS を除外** → 3 seed とも critical-three 0。"
+  },
+  "candidate_sha256": "ead375a23e061631e558f7903570e02a98664837348b5d73e3f02fff4f3227f3",
+  "review": {
+    "date": "2026-09-18",
+    "reviewer": "codex",
+    "model": "gpt-5.6-sol / reasoning high",
+    "thread": "<redacted-id>",
+    "candidate_sha256": "ead375a23e061631e558f7903570e02a98664837348b5d73e3f02fff4f3227f3",
+    "checklist": "knowledge/REVIEW_CHECKLIST.md",
+    "diff_range": "agents/gen0051/main.py..agents/gen0058/main.py",
+    "note": "P0 ゼロ・昇格可。Codex が独立に検証して問題なしと確認: 時刻式 `d + 1 <= 24 - hour` は hour 0 起点・EOD は h23 の行動処理後（kaggriculture.py:945）から正しい／新しい定数は実際にゼロ／例外パスは最外層 try で action dict を返す／計量 mean 0.00020s・p99 0.00036s・max 0.00927s／評価 JSON の candidate_sha256 が実ファイルと一致／FEED/CARE の最寄り判定に足した到達可能性フィルタは FIX0005 の穴を新しく開けていない／claimed・planned_seed・shed_wheat_free・shed_fert_free の会計に非対称なし／ゾーン越境は起きるが _owner_can_come の保護が残るので主効果ではない。**main.py は一切変更していない**（P1-1 は記録の数字と解析スクリプトの修正、他 3 件は台帳へ deferred）。",
+    "findings": [
+      {
+        "severity": "minor",
+        "what": "記録した『h23 発の MOVE』（157→92 / 154→74 / 175→76）が action と observation を 1 ステップずらして数えた誤り。正しくは 181→7 / 149→6 / 170→10。併せて解析スクリプト 2026-09-19_move-budget.py の `left = 23 - hour` も 1 少なく（正しくは 24 - hour）、『到達可能な代替が実在した END_OF_DAY 区間』を 259/266/367 h と過小に出していた（正しくは 322/329/444 h ＝ 68-73%）",
+        "resolution": "fixed",
+        "how": "EXP0058 / meta.json の数字を訂正し、move-budget.py の off-by-one を直した。**main.py は変更していないので SHA は不変。** 誤りの向きはどちらも効果の過小評価なので判定は動かない"
+      },
+      {
+        "severity": "minor",
+        "what": "ゲートの FINAL_DAY carve-out が終端規則と逆向き（最終日は位置も在庫も持ち越せないので届かない移動の価値は通常日以上にゼロ。かつ最終行動は h22 = LAST_ACTION_HOUR）。実測: seed 42 の d29 h22 に肥料を持つ hand が [6,3] からシェッドへ WEST を出すが DROP の手番が無く死蔵",
+        "resolution": "deferred",
+        "ledger": "FIX0029",
+        "note": "FIX0028（最終日 h21 の COLLECT_FERTILIZER）と同じ根なので終盤清算を触る世代でまとめて直す"
+      },
+      {
+        "severity": "major",
+        "what": "LOSS_PRIS の carve-out は枯死防止 WATER(pri 1.0) に最寄り担当制が無いという穴を残す。遠いゾーン所有者が WATER をゲート例外で選び移動中に claimed すると到達可能な別 hand が弾かれる。エンジンは consecutive_unwatered >= 2 で即 WEED 化（kaggriculture.py:777）。FEED/CARE には dmin があるのに WATER には無い非対称",
+        "resolution": "deferred",
+        "ledger": "FIX0030",
+        "note": "3 スモーク + 1,300 戦で unfed/uncared/noop は全 0 だが、**critical-three は枯死を直接見ていない**ので発火の有無が分からない。まず new_weed_from_unwatered 相当の指標を足すのが順序（人への提案として HANDOFF に載せた）"
+      },
+      {
+        "severity": "minor",
+        "what": "ゲートで落ちた todo が上流会計に残る（zone_unfed / zone_fert / fert_soon はゲート前の全 todo を数える）うえ、ZWHEAT / ZFERT の一括 PICKUP は eval_todos の外で best と直接比較されるのでゲート自体を迂回する。真の h23 残存 MOVE 7/6/10 のうち 6/6/9 がシェッド方向だったことと整合",
+        "resolution": "deferred",
+        "ledger": "FIX0031"
+      }
+    ],
+    "blocking_resolved": true
+  },
+  "eval": {
+    "file": "records/eval_gen0058.json",
+    "pool_sha256": "e3f965925ea35cea3dbbf4eb0c01b81170a5903f23d6891534397743092d70b7",
+    "baseline": "records/eval_gen0051.json",
+    "seeds": 50,
+    "games": 1300,
+    "errors": 0,
+    "pass": true,
+    "pass_route": "margin",
+    "too_good": null,
+    "margin_delta_paired": "+1706.1 [+1068.4, +2343.8]",
+    "strong_margin_delta_paired": "+1823.0 [+1023.7, +2622.4]",
+    "money_delta_paired": "+2467.5 [-345.5, +5280.6]",
+    "slope_delta": 127.2,
+    "rating_delta": "+17.4 [-30.7, +65.5]",
+    "pool_rating": "661.1 ± 17.3 (王者 gen0051: 643.7 ± 17.4)",
+    "mid_win_rate": "gen0044 73% / gen0045 82%（王者 69% / 77%）",
+    "strong_win_rate": 0.0011,
+    "note": "**このプロジェクトの検証済み最大効果**（直近の昇格 gen0048 は +$313）。相手資金差は全体 +$761.4 / 強帯 +$183.9 ＝ **denial ではなく自分の生産が増えた側の勝ち**。自資金の CI が 0 をまたぐのにマージンの CI が 0 を大きく超えるのは、seed ごとの自資金差と相手資金差の相関が 0.977-0.979 で、差を取ると町抽選と共有市場の共通ショックが消えるため（Codex が全 1,300 戦を再対応付けして算出）。"
+  },
+  "exp_file": "knowledge/experiments/EXP0058_reachability-gate.md"
+}

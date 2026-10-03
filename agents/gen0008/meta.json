@@ -1,0 +1,13 @@
+{
+  "generation": "gen0008",
+  "parent": "gen0006",
+  "track": "A",
+  "date": "2026-09-03",
+  "hypothesis": "gen0006 のトリクル売りは town_absorb(1日分の吸収量)を毎ターン(毎時)売るため最大24倍速のダンプになっており、床未満グラットを自ら悪化させる(codex 提出前レビューで実試合により確認: WOOL 吸収1個/日を同日8ターンで8個売却)。hour==0 の1日1回に制限すれば、ミラー的な牛経済相手でのプレミアム価格維持が改善し median が上がる",
+  "changes": [
+    "fix4: 床未満域のトリクル売りを hour==0 の1日1回に制限(minv ベースの budget は市場在庫で自己制動するため毎ターンのまま)",
+    "SHED_DUMP 85→78: 同一ターン複数HARVESTのジャンプで容量100を跨ぐ残存経路への余裕拡大"
+  ],
+  "eval": "records/eval_gen0008.json",
+  "experiment": "knowledge/experiments/EXP0008_trickle-once-daily.md"
+}

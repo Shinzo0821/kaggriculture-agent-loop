@@ -1,0 +1,168 @@
+{
+  "gen": "gen0022",
+  "parent": "gen0021",
+  "exp": "EXP0022",
+  "date": "2026-09-05",
+  "track": "労働割当システムの差し替え（ゾーン固定割当 + 小麦一括物流 + CARE復活 + 出荷制御）",
+  "hypothesis": "拡張が負けるのは割当実装のせい。gen0021 は 12hands の hand-hour の 76% が移動に消え CARE がほぼ 0・FEED も隔日で欠ける（毎時グローバル最近傍再割当 / CARE 優先度 3.5 のデッドレター / 小麦携行2個制限の往復が原因）。ゾーン固定割当+小麦一括+CARE 復活で 12頭の生産をフル稼働させれば 2 クアドラントは gen0018 を資金で上回る。",
+  "source": "knowledge/analysis/2026-09-05_gen0021-labor-audit.md",
+  "changes": [
+    "ゾーン固定割当: 動物(重み4)+作物+建設予定パスチャ(重み1)タイルをクアドラント順に整列し、hands_target(day) 区画に負荷均等の連続ブロックで分配（hands は毎日ゼロから再雇用されるため、区画数を日次目標で固定して朝の増員中も境界を動かさない）。hand は自ゾーン優先→グローバル fallback。farmer は全体遊撃。",
+    "小麦一括物流: 自ゾーンに未給餌がいる hand はシェッドで動物数+1 まで一括 PICKUP（pri 0.8、旧2個制限を撤廃）。日次リセットで携行小麦はシェッドに戻るので持ち越しロスなし。",
+    "優先度改訂: FEED 1.2→0.9（枯死防止WATER 1.0 より上に。植付波の日に給餌が丸一日潰れていた）、CARE 3.5→0.95（FEED 直後）。",
+    "FEED/CARE の最寄り担当制: 最寄りの有資格ユニットだけが claim できる（遠方 hand が claim して隣の hand が PASS する unit 順逆転の排除）。",
+    "午後の溢れ救済: 他ゾーンの FEED(h12+・小麦持ち)/CARE(h18+) を zone pass でも拾う。",
+    "farmer 役割バイアス: 動物 PICKUP/PLACE を eff pri 0.85 で朝一に処理（従来は夕方設置になり当日給餌不能）。動物 PICKUP は空きパスチャ数まで一括。PICKUP h14 / PLACE h18 以降は翌朝に回す（シェッド泊）。",
+    "出荷制御(労働側): 動物産品の HARVEST を「価格が SELL_FLOORS 以上 or yield 5+/6 or DUMP_DAY」の時だけ生成。フル生産の連続出荷は町の吸収を超え milk が $33 のトリクル売りに沈む（供給を動物上にバンクし高値日に一括収穫→既存 SELL が換金）。SELL/BUY ロジック自体は gen0021 のまま。",
+    "パスチャ建設タイルをゾーン割当対象に（建設が夕方までずれて設置→給餌が連鎖的に破綻していた）。"
+  ],
+  "smoke": "vs gen0018 seed42/7/100: $83.8k/$59.0k/$50.9k（全勝、gen0021 は $29.8k/$42.9k/$28.7k）。audit d1-28: unfed 0日・uncared 0日（3シードとも合格）。move% 61.8-62.9（gen0021 76-88）。拡張5シード(1/2/3/5/11)も全勝、8シード平均 $71.8k・最低 $38.2k。vs starter seed42: $49.8k vs $4.0k。profile mean 0.00011s / max 0.00041s。例外ハンドラ無効化での3シード再走で結果同一（隠れ例外なし）。",
+  "status": "SMOKE_PASSED",
+  "notes": "move% <60 は未達（61.8-62.9）。hands が毎朝シェッドで再雇用される仕様上、ゾーンへの通勤が構造的に残る。fallback の距離キャップは move% を下げず資金を悪化させたため不採用。単シードの資金は割当の微小変更で ±$30k 振れる（カオス的）— 評価は必ず多シードで。",
+  "mechanisms": [
+    {
+      "name": "zone_labor",
+      "since": "gen0022",
+      "what": "農場をクアドラント単位のゾーンに割り、hand を日単位でゾーン専属にする。ルーチンは FEED→CARE→WATER→HARVEST の固定順",
+      "constants": {
+        "n_zones": "max(n_hands, hands_target(day), 1)"
+      },
+      "origin": "derived",
+      "ablation": null,
+      "why": "gen0021 は毎時グローバル最近傍再割当で hand-hour の 76% を移動に浪費していた（knowledge/analysis/2026-09-05_gen0021-labor-audit.md）"
+    },
+    {
+      "name": "bulk_wheat_pickup",
+      "since": "gen0022",
+      "what": "朝1回のシェッド訪問でゾーン内の動物数+1 まで小麦を一括 PICKUP（旧: 2個まで）",
+      "constants": {
+        "carry": "zone_animals + 1"
+      },
+      "origin": "derived",
+      "ablation": null,
+      "why": "隔日の unfed スパイクは在庫でなく物流（2個携行制限でシェッド往復）が原因だった"
+    },
+    {
+      "name": "task_priorities",
+      "since": "gen0022",
+      "what": "todo の優先度。枯死防止 WATER=1.0 > CARE=0.95 > FEED=0.9（連続 unfed は 0.0 で最優先）",
+      "constants": {
+        "water_death": 1.0,
+        "care": 0.95,
+        "feed": 0.9,
+        "feed_urgent": 0.0
+      },
+      "origin": "tuned",
+      "ablation": null,
+      "why": "gen0021 の CARE=3.5 は WATER/HARVEST より低くデッドレターだった（uncared 10-12頭/日）。相対順序は監査で決めたが数値そのものは当てにいった値"
+    },
+    {
+      "name": "cash_reserve",
+      "since": "gen0021",
+      "what": "全ての discretionary buy（土地・動物・種）に現金リザーブを残す",
+      "constants": {
+        "RESERVE": 400
+      },
+      "origin": "tuned",
+      "ablation": null,
+      "why": "gen0020 は d10 メロン IPO の proceeds を全額再投資して現金 $20 → feed が買えず動物 escape（EXP0020）"
+    },
+    {
+      "name": "sell_floors",
+      "since": "gen0013",
+      "what": "プレミアム品はこの価格以上なら即全量売り",
+      "constants": {
+        "MILK": 96,
+        "WOOL": 120,
+        "STRAWBERRY": 72,
+        "_rule": "base 価格の 0.6"
+      },
+      "origin": "tuned",
+      "ablation": null,
+      "why": "base×0.6 という比率は導けるが、0.6 という係数自体は当てにいった値"
+    },
+    {
+      "name": "endgame_liquidation",
+      "since": "gen0008",
+      "what": "d28 以降は価格を問わず全量売却、d29 は手持ちを DROP してでも換金",
+      "constants": {
+        "DUMP_DAY": 28,
+        "FINAL_DAY": 29,
+        "LAST_FEED_DAY": 28,
+        "LAST_PLANT_DAY": 25,
+        "LAST_PLANT_HOUR": 20
+      },
+      "origin": "derived",
+      "ablation": null,
+      "why": "ゲームは 30 日（d0-29）。d25 植付が age4 で d29 に間に合う限界＝構造から導ける"
+    },
+    {
+      "name": "afternoon_rescue",
+      "since": "gen0022",
+      "what": "h12 以降は自ゾーン外の FEED、h18 以降は自ゾーン外の CARE も拾う",
+      "constants": {
+        "feed_from_hour": 12,
+        "care_from_hour": 18
+      },
+      "origin": "tuned",
+      "ablation": null,
+      "why": "ゾーン専属だけだと担当 hand の小麦切れ・夕方設置の動物が取り残される。時刻そのものは当てにいった値"
+    },
+    {
+      "name": "animal_placement_window",
+      "since": "gen0022",
+      "what": "動物の PICKUP は h14 まで、PLACE は h18 まで。夕方の新規設置はせずシェッド泊で翌朝設置",
+      "constants": {
+        "pickup_until_hour": 14,
+        "place_until_hour": 18
+      },
+      "origin": "derived",
+      "ablation": null,
+      "why": "設置直後に世話が間に合わない動物を作らないため（daily reset で携行動物はシェッドに戻る）"
+    },
+    {
+      "name": "harvest_supply_control",
+      "since": "gen0022",
+      "what": "収穫タイミングで供給を絞る（労働側の出荷制御）。shed 在庫が閾値を超えたらプレミアム品も全量ダンプ",
+      "constants": {
+        "SHED_DUMP": 78,
+        "GLUT_SLACK": 10,
+        "DROP_VALUE": 500
+      },
+      "origin": "tuned",
+      "ablation": null,
+      "why": "自分でグラットを起こして価格を潰さないため。閾値は実測から当てた値（DROP_VALUE は公開実装 Rayk C72 の 500 を採用）"
+    },
+    {
+      "name": "land_curve",
+      "since": "gen0021",
+      "what": "土地の購入日と枚数（gen0022 は NW+NE の 2 枚、gen0023 は d11 に SW を加えて 3 枚）",
+      "constants": {
+        "LAND_PRICES": [
+          1000,
+          2000,
+          4000
+        ],
+        "target": 2
+      },
+      "origin": "derived",
+      "ablation": null,
+      "why": "上位の実測 modal（2枚目 d9・3枚目 d12 中央値）に合わせた"
+    },
+    {
+      "name": "hands_curve",
+      "since": "gen0013",
+      "what": "hands の増員曲線（gen0022: 12、峰 d10/d20=14。gen0023: d11-28 を 13）",
+      "constants": {
+        "FIB": "hire コストは fib 円/日",
+        "HIRES_PER_TURN": 3,
+        "base": 12,
+        "peak_d10_d20": 14
+      },
+      "origin": "tuned",
+      "ablation": null,
+      "why": "上位は 10-12 hands で 12-17 頭を回している（knowledge/analysis/2026-09-05_sparring-audit.md）。gen0023 の 13 人目は過剰の疑い"
+    }
+  ],
+  "mechanisms_doc": "機構の台帳（計画 §5-A）。origin=derived はゲーム構造から導ける機構、tuned は当てにいった値。**昇格 2 回に 1 回は tuned の機構を 1 つ外した『削る世代』を作り、対応付き評価で CI が 0 をまたげば外したまま採用する**（§5-B）。ablation にはその評価 JSON のパスを入れる。"
+}

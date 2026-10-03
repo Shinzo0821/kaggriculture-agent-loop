@@ -1,0 +1,85 @@
+{
+ "gen": "gen0045",
+ "parent": "gen0044",
+ "exp": "EXP0045",
+ "date": "2026-09-07",
+ "hypothesis": "YARN_STORE が 2 軒以上引かれた町（seed の約 12%）でだけ、d12-16 に SE($4,000) を買い、羊を 4→8 に段階増頭し、SE に飼料小麦 6 枚を足す。y<=1 の町では一切何もしない（拡張分岐は完全に不活性）。羊毛だけが供給不足市場（他品目は市場律速で CLOSED, EXP0043）なので、上限価格に張り付いた y>=2 の町でだけ増産枠が浮く。非発火 seed のコストは拡張機構としては 0（ただし同梱の FIX0014-0016 は全 seed の売買挙動を変える）。設計書 state/plans/2026-09-07_gen0045-funded-wool.md。",
+ "source": "state/plans/2026-09-07_gen0045-funded-wool.md（Strategist 起案）。IDEA_POLICY §1（畜産構成＋土地＋作付けを同じ日にまとめて動かす型変更）＋§2（未使用の観測 unlocked_shops の YARN_STORE 軒数を頭数決定に使う）。EXP0040 の学び 3（SE 購入＋町抽選条件付き）の実装。",
+ "changes": [
+  "拡張本体（発火 = expansion_active: yarn>=2 かつ d12-16 の窓 or SE 既取得）: land_target(day,yarn,unlocked) が発火時 4 を返し SE($4,000) を購入 → 翌日 SE パスチャ 4 枚建設（PASTURE_TILES 末尾に (6,5)(7,5)(5,6)(6,6)）→ sheep_target=8 で羊を空きパスチャ数キャップ付きで 4→8 に増頭。CROP_PLANS WHEAT に SE 飼料小麦 6 枚(from_day 12) を追加。room = COW_MAX + sheep_target。発火時のみ羊の購入窓を d10→18 に延長。すべて expand/se_owned/yarn>=2 でゲートし、非発火では拡張分岐は完全に不活性（SE タイルは LOCKED='LOCKED'≠None なので建設・PLANT・fallback を素通り）。",
+  "unfed=0 の機械保証（設計書 §5）: feed_buffer と市場飼料買いを planned_total = owned_total + max(0, sheep_target(day,yarn,True) - owned['SHEEP']) 基準に置換（発火時のみ増える。非発火では owned_total と厳密一致）。羊が来る前から飼料在庫目標が上がる。",
+  "発火時のみ hands +1（設計書 §4 注4「発火時のみ hands 曲線を動かす」の実装）: 羊 +4 頭（12→16 頭）の FEED/CARE を 12 hands では吸収できず unfed/uncared が出た（seed7/14 実測: 供給ではなく hand-hour 律速。shed 小麦 15-21 個ありながら 16 頭中 1 頭が未給餌）。expand 時のみ d12 以降 hands_target を +1。非発火では expand=False で従来値のまま（IDEA_POLICY 禁止 2 の単独 hands+1 ではなく拡張と束ねた発火限定の増員）。+2 でも unfed=0 になるが 13/14 番目の日次雇用 fib コストが高く +1 で十分（4 発火 seed とも unfed=0）。",
+  "FIX0014（open major → applied）: keep_sells で落とす低価値 SELL の架空代金で essential buy を組む不整合。各 buy の見積代金を buy_costs に記録し、市場組立ての最後に実約定する SELL（sells[:keep]）だけで realized 予算を組み、realized < sum(buy_costs[:nb]) の間 nb を末尾から落として（枠を SELL に返して）安定させる。SELL 全数残る通常ターンは realized>=total で buys 不変。",
+  "FIX0015（open minor → applied）: BETA_SELL 品目（WOOL）の家畜収穫解除ゲートを固定 SELL_FLOORS(120) から beta_sell_cap(prod, minv, day)>0 に合わせる（市場売却と同じ動的 β 判定）。非 BETA 品目は従来の SELL_FLOORS 床のまま。",
+  "FIX0016（open minor → applied）: beta_sell_cap の return を int((I0+root)-market_inv)+1 から int(I0+root)-market_inv+1（正しい floor）に。境界の β·base 割れ 1 個売りを止める。"
+ ],
+ "excluded": "牛→羊スワップ（gen0037 で用量反応つき棄却）・メロン第2波カットでの資金調達（gen0035/0037/0040 の供給を削る失敗形）・羊 6 頭無条件（EXP0040 棄却）・拡張窓/YARN_MIN の sweep・hands ±1 の単独変更（すべて IDEA_POLICY 禁止 or 棄却済み）は入れない。SELL 量の決定ロジック（beta_sell_cap の N・premium_absorb・DUMP_DAY 清算）は触らない。FIX0017（共有市場の soft bound）は本設計の範囲外で open のまま。y=1 での増頭は §2 の負 ROI で採らない。",
+ "smoke": "vs starter 16 seed。発火 seed（y>=2 を d12-16 に観測）= 7/10/14/15、非発火 = 0-6,8,9,11-13。発火 seed 7 検証（+1hand 版）: micro_audit --assert で noop_total=0 / unfed_days=0 / uncared_days=0（3 つとも OK）。replay に SE unlock・羊 8 頭・SE パスチャ 4 枚（(5,6)(6,5)(6,6)(7,5)）・SE 小麦植付（計画6枚＋fallback で 21 枚）・WOOL final_shed=0（d29 産の羊毛も換金）を確認。発火 4 seed すべて unfed=0/uncared=0。非発火 seed: 拡張機構は完全に不活性（12 seed とも max_sheep<=4・SE 未 unlock・SE タイル 0 = 0 leak）。ただし非発火でも FIX0014-0016 が売買挙動を変えるため親と日次資金が一致しない seed がある（下記 leak_check 参照）。強帯 micro（inplace_share/tile_util/各収量/last_water_hour）は親 gen0044 同様 NG（強帯到達目標=FIX0013、SE 増設で tile_util はさらに低下。--limit 対象）。profile mean/max = 0.0002/0.0122s（1 秒 OK）。static_check OK。check_fixes applied 11/11・回帰 0・open 6。",
+ "leak_check": "非発火 seed の『親とバイト単位で同一挙動』不変条件は、拡張機構については成立（12 非発火 seed とも SE 未 unlock・羊<=4・SE タイル 0）。しかし同梱の FIX0014-0016 は expansion-gated ではなく全 seed の売買挙動を変えるため、非発火 seed でも親 gen0044 と日次資金が一致しない seed がある（vs starter: seed 4/5/9/12 は完全一致、seed 0/1/3/8 等は FIX0015 の WOOL 収穫ゲート変更で d13 以降 divergence。最初の分岐は seed0 d13h8 の HARVEST vs COLLECT_FERTILIZER）。設計書 intro も『帰属は羊毛拡張＋売買修正の束』と明記済み。→ Evaluator/Supervisor 判断事項: 設計書 §8 の『非発火=0 variance ゆえ発火 seed だけで対応付き CI が決まる』前提は FIX0014-0016 同梱で崩れる。50 seed eval のマージン差は拡張効果＋売買修正効果の束になる。クリーンな拡張単独計測が欲しければ FIX0014-0016 を別掃除世代に分離する選択肢あり（拡張コードは leak-free と確認済みなので分離は容易）。",
+ "status": "GATE_PENDING_EVAL",
+ "notes": "eval のキュー投入・提出・Codex レビューは親セッションが行う（このセッションでは未実施）。50 seed eval（baseline = records/eval_gen0044.json）と Codex レビュー後に gate/review/status を更新する。review オブジェクトは未記載（レビュー後に追加）。",
+ "mechanisms": [
+  {
+   "name": "funded_wool_expansion",
+   "since": "gen0045",
+   "what": "yarn_count(unlocked_shops)>=2 かつ d12-16 の窓（or SE 既取得）でだけ SE($4,000) を買い、羊を空きパスチャ数キャップで 4->8 に増頭、SE に飼料小麦 6 枚を足す。land_target/sheep_target/room/羊購入窓/want_built/feed planned_total を expand でゲート。非発火では完全不活性",
+   "constants": {"YARN_MIN": 2, "EXPAND_W0": 12, "EXPAND_W1": 16, "COW_MAX": 8, "sheep_target_fired": 8, "SE_pastures": ["(6,5)", "(7,5)", "(5,6)", "(6,6)"], "SE_feed_wheat": ["(7,6)", "(5,7)", "(6,7)", "(7,7)", "(8,5)", "(8,6)"], "land_price_SE": 4000},
+   "origin": "derived",
+   "ablation": "records/eval_gen0044.json（この機構を外した版＝親。羊 4 頭固定・SE 買わず）",
+   "why": "発火条件・頭数・窓はエンジン算数から導く（設計書 §1: 抽選 P(y>=2)@d15=12.1%、y>=2 で需要 25+/日 ≫ 供給＝上限価格 $237-240 に張り付き自己値崩れゼロ、羊 1 頭の限界産出 age別、SE 込み損益ゼロが d18 なので窓を d16 で閉じる）。羊毛だけが供給不足市場（EXP0043 で他品目は市場律速 CLOSED）。y<=1 は増頭の限界収入が負〜ゼロなので発火しない"
+  },
+  {
+   "name": "feed_buffer_lookahead_on_expansion",
+   "since": "gen0045",
+   "what": "拡張確定（expand）なら羊 8 頭ぶんの飼料在庫目標を羊が来る前から立てる。市場飼料買いを planned_total = owned_total + max(0, sheep_target(day,yarn,True) - owned['SHEEP']) 基準に、feed_buffer(SELL 抑制)を『planned_total if expand else total_placed』基準に置換（Codex P1-1 修正後: placed+carried+shed+追加予定を全て予約基準に含め、購入済み未配置の羊が予約から落ちる穴を塞ぐ）。非発火では total_placed=親と厳密一致",
+   "constants": {"planned_total": "owned_total + expansion_extra when expand else owned_total"},
+   "origin": "derived",
+   "ablation": "records/eval_gen0044.json（owned_total 基準の版＝親）",
+   "why": "EXP0040 の unfed 3 日の構造（需要 12->16/日に対し在庫先回り不足）を塞ぐ。飼料 $45/個×8 は羊 1 頭の産出 $3,000+ に対し誤差"
+  },
+  {
+   "name": "expansion_hands_bump",
+   "since": "gen0045",
+   "what": "発火時のみ d12 以降 hands_target を +1（羊 +4 頭の FEED/CARE の hand-hour 律速を吸収）。非発火では従来値のまま",
+   "constants": {"bump": 1, "since_day": "EXPAND_W0(12)"},
+   "origin": "capacity_for_unfed",
+   "ablation": "同世代内 A/B: +0 は seed7/14 で unfed 3 日・uncared 2 日（棄却＝絶対条件違反）／ +2 は unfed=0 だが 13/14 番目の日次雇用 fib コストが高く seed7 final $144k（+1 は $151k）。+1 が 4 発火 seed とも unfed=0 かつ最安。設計書 §4 注4 の v2 機構",
+   "why": "16 頭は 12 hands の hand-hour を超える（供給ではなく logistics 律速: shed 小麦 15-21 個ありながら 16 頭中 1 頭が未給餌）。拡張と束ねた発火限定の増員なので IDEA_POLICY 禁止 2（単独 hands+1）に当たらない"
+  },
+  {
+   "name": "market_budget_reconcile",
+   "since": "gen0045",
+   "what": "FIX0014（open major → applied）: 各 buy の見積代金を buy_costs に記録し、市場組立ての最後に実約定する SELL（sells[:keep]）だけで realized 予算を組み、realized < sum(buy_costs[:nb]) の間 nb を末尾から落として枠を SELL に返して安定させる二段構え",
+   "constants": {"MARKET_SLOTS": 10},
+   "origin": "derived",
+   "ablation": "records/eval_gen0044.json（keep_sells 切り捨てと mest 全 SELL 計上が不整合の版＝親）",
+   "why": "落とした低価値 SELL の架空代金で組んだ BUY_LAND/BUY_ANIMAL が実代金不足で無言 no-op しうる（重い購入日）。SELL 全数残る通常ターンは realized>=total で buys 不変＝親と一致（gen0044 が全 buy を発注できた＝money+全SELL代金>=総購入代金なので）"
+  },
+  {
+   "name": "beta_harvest_unlock_gate",
+   "since": "gen0045",
+   "what": "FIX0015（open minor → applied）: BETA_SELL 品目（WOOL）の家畜収穫解除ゲートを固定 SELL_FLOORS(120) から beta_sell_cap(prod, minv, day)>0 に合わせる。非 BETA 品目は従来の SELL_FLOORS 床のまま。FIX0016: beta_sell_cap の int() を正しい floor（int(I0+root)-market_inv+1）に",
+   "constants": {"WOOL_floor_old": 120, "unlock": "beta_sell_cap(prod,minv,day)>0"},
+   "origin": "derived",
+   "ablation": "records/eval_gen0044.json（固定 SELL_FLOORS ゲートの版＝親）",
+   "why": "β が売却可でも $110-119 帯・d25-27 逓減床では収穫されず d28 強制収穫へ先送りされ回復日 burst を取り逃す（gen0044 Codex レビュー FIX0015）。市場売却の動的 β 判定と対称にする"
+  }
+ ],
+ "mechanisms_doc": "この配列は親 gen0044 からの差分だけ。gen0044 の 3 機構（beta_marginal_sell_wool_melon・fert_pair_close_on_prod_day・market_slot_reservation）と gen0042/0041/0036 系の全機構台帳はそのまま継承。FIX0014-0016 は gen0044 の Codex レビュー deferred（FIXES.md）を本世代で applied 化。FIX0017 は open のまま。FIX0014 の reconcile 残存精度（P1-2）は FIX0018 として open 登録。",
+ "review": {
+  "date": "2026-09-06",
+  "reviewer": "codex",
+  "model": "gpt-5.6-sol / reasoning high",
+  "candidate_sha256": "2c3ea8f68f4c90f38be024338faed4b68f1521f9a7c888d35bc3bff8ba6153b3",
+  "checklist": "knowledge/REVIEW_CHECKLIST.md",
+  "diff_range": "agents/gen0044/main.py..agents/gen0045/main.py",
+  "thread": "<redacted-id>",
+  "findings": [
+   {"severity": "major", "what": "P1-1: feed_buffer が購入済み・未配置の羊を予約から落とす（発火時、買った羊が placed にも追加予定羊にも数えられず feed 予約が一時的に 50→38 へ減る＝unfed リーク）。設計書の unfed=0 機械保証に穴", "resolution": "fixed (1212: feed_buffer=(planned_total if expand else total_placed)*3+2。発火 4 seed 再検証 unfed/uncared/noop=0・非発火 seed4 は親と厳密一致を維持。Codex 再確認済み)"},
+   {"severity": "minor", "what": "P1-2: FIX0014 reconcile が実約定可能性を保証しない（kept SELL の 0.7 掛け過小評価で正当な重い購入を落としうる・RESERVE=400 を reconcile で再確認しない・nb-=1 が数量注文を部分約定させず全落ち）。即死級でなく次の売買世代へ隔離", "resolution": "deferred (FIX0018 open 登録・sources gen0045#1)"},
+   {"severity": "trivial", "what": "P2: 設計書 §7/§8 が hands+1・FIX0014-16 同梱前の記述のまま（『触らないもの: hands_target』と矛盾）／hands mechanism の origin が単独 tuning に読める", "resolution": "fixed (設計書に実装追記・meta hands 機構の origin を capacity_for_unfed に改め why を明確化)"}
+  ],
+  "blocking_resolved": true
+ },
+ "candidate_sha256": "2c3ea8f68f4c90f38be024338faed4b68f1521f9a7c888d35bc3bff8ba6153b3"
+}

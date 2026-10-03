@@ -1,0 +1,15 @@
+{
+  "generation": "gen0004",
+  "parent": "gen0003",
+  "track": "B",
+  "date": "2026-08-31",
+  "hypothesis": "上位(torch $91k, 終盤日+$9k)の terminal acceleration は高付加価値 one-time 作物の空き地展開。メロンはどの店舗も消費せず需要は町センター1個/日のみ、glut曲線T=300/sq/above3.6 なので実運用の15-30個規模なら base $250 近辺で売れる(1タイル6個≈$1500)。gen0003はメロンを保有時に売るだけで一度も植えない。NE(+SW)購入で空き地を確保しメロンを波状に植え、hand 4→6 で労働を賄えば終盤資金が伸びる",
+  "changes": [
+    "土地購入: BUY_LAND を追加。NE(money>=2500,day>=3)→SW(money>=6000)。潤沢時のみ発火で貧乏ゲームは lean 維持",
+    "メロン栽培: NW空き7 + NE購入地8 = 最大15タイルに day18まで波状植付(早植えは自然に2サイクル)。収穫pri1.9で確実回収、水やりは本業(給餌/小麦)より低優先",
+    "メロン種購入: 空きタイル分を運転資金$1500を残して購入(1回最大4)",
+    "hand 増員: TARGET_HANDS 4→6(拡張タイルの水やり/収穫労働)"
+  ],
+  "eval": "records/eval_gen0004.json",
+  "experiment": "knowledge/experiments/EXP0004_land-melon-scale.md"
+}

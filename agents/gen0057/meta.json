@@ -1,0 +1,80 @@
+{
+  "gen": "gen0057",
+  "parent": "gen0051",
+  "exp": "EXP0057",
+  "date": "2026-09-19",
+  "hypothesis": "王者は毎試合タイル日の約 3 割を捨てており（tile_util 0.61-0.70 が相手 12/12 で発火）、空いたタイルを埋める経路は今まで全部小麦だった。EXP0038（訪問完了で埋める）は +$44、EXP0053（層2に昇格して埋める）は マージン −$682。EXP0053 の学びは『機構は成功したが出口の経済で負けた＝増えた小麦は共有市場で相手をより稼がせる』で、今夜その機序を実測で特定した: 相手は 1 試合で小麦を 105-487 個『買って』いる（我々 83-119 個）。小麦は BUY_PRODUCT できる 2 品目の 1 つなので、我々の増産は相手の飼料仕入れ値を直接下げる。ニンジンにはこの経路が engine 上存在せず（BUY_PRODUCT は WHEAT と FERTILIZER のみ）、かつ 12/12 の試合で季節末在庫が I0 より 128-659 個少ない（町の需要が両者の供給合計を上回り続ける＝価格は 11/12 で基準 $35 を一度も割らず $45-62 で終わる）。よって EXP0053 と同じ機構を、出口だけニンジンに替えれば margin の符号が反転するはず。",
+  "source": "knowledge/analysis/2026-09-19_sell-side-market-structure.md（今夜の実測。records/cal_*.json 12 本＋probe 3 本の再解析・新規対戦なし）／knowledge/experiments/EXP0053（機構は成功・出口で失敗という対照）／EXP0038（訪問完了＋小麦 = +$44）／knowledge/analysis/2026-09-19_gen0051-vs-7turn.md §3-4（tile_util 0.61-0.70 は相手非依存の骨格の性質）。IDEA_POLICY: 既存の観測（market.inventory）を新しい判断（作付け）に使う＝§2。埋める枚数を市場在庫で決めるので『常時○○』型ではない。",
+  "changes": [
+    "新定数 WHEAT_LATE_FROM_DAY = 19。CROP_PLANS[\"WHEAT\"] が自分で『終盤ブロック12(d19: メロン跡地)』と宣言している既存の区切りをそのまま使う（新しく引いた境界ではない）。これより前のタイル（NW 基幹 from_day 0・自給拡張 from_day 10・SE 飼料 from_day 12）は飼料の芯なので対象外。",
+    "新関数 carrot_fill_budget(minv, day): 今ターン ニンジンに置き換えてよい枚数 = (I0 − market.inventory[CARROT]) // MAX_YIELD[\"CARROT\"]。day > carrot の last_plant_day(26) なら 0。閾値は勘で置かず『1 枚が市場に出す個数』で headroom を割る。売れば headroom が減るので自動で止まる（自己制限）。",
+    "植付スケジューラ: from_day>=19 の空き小麦計画タイルを、予算が残っている間だけ PLANT CARROT に差し替える。優先度も CARROT 計画の 2.24（層2）を使う —— これは新しい昇格ではなく gen0048 Stage A が carrot 植付に既に与えている分類の一貫適用（当時の根拠: 『carrot 2-3 個 × $25-35 を新規に生むので経済クラスはイチゴ HARVEST と同じ』）。",
+    "フォールバック植付（計画外の空きタイル）も同じ予算で CARROT に差し替える。",
+    "window_end[\"CARROT\"] を差し替え発生時に setdefault（種の補充ループが carrot を買えるようにするため）。",
+    "★入れなかったもの: DAILY_TILE_OPS への PLANT 追加（EXP0038 の機構）。本世代の変更を『作物の選択』1 点に絞って効果の帰属を割らないため。参考として vs starter 3 seed の A/B 分離では PLANT 追加のみの版が 3 seed とも親を下回ったが、≤8 seed は方向判断に使えないので棄却とは書かない（別世代で再測する）。"
+  ],
+  "status": "EVAL_QUEUED (2026-09-19 夜 cycle4。state/eval_queue/20260918_165822_gen0057.json・50 シード・baseline=records/eval_gen0051.json＝reform 後の 13 体プール e3f96592)",
+  "smoke": "vs starter seed 7/14/42: エラー 0・両者 DONE。final_money 146167/136566/119528（親 gen0051 は 149253/155185/103829。★≤8 seed は方向判断に使わない —— 実測でこの試合の資金差の大半は乳の投げ売り時刻のずれで説明が付き、単シードは ±$30k 振れる）。機構の発火は確認: ニンジン収穫回数 seed7 13→42・seed42 10→54（1 収穫あたり収量も 2.23→2.79 / 2.40→2.83）、小麦収穫 86→68 / 83→53、tile_util seed7 0.615→0.701。micro_audit --assert（seed 7/14/42）: critical-three（noop_total/unfed_days/uncared_days）全 0 = OK。NG 6 件（inplace_share/last_water_hour/melon_yield/strawberry_yield/tile_util/wheat_yield）は親 gen0051 の NG 集合と完全に同一＝新規回帰 0。audit_replay: unfed>0 が 0 日・uncared>0 が 0 日（3 seed とも）。check_fixes: applied 14/14 検出・回帰 0・open 9（親と同一）。static_check OK。profile ok_mean_lt_0.1=true・ok_max_lt_1.0=true。",
+  "leak_check": "差し替えは (a) from_day>=19 の小麦計画タイル と (b) 計画外 fallback タイル のみ。(a) は day>=19 でしか回らない。(b) は carrot_fill_budget が 0 の間は発火せず、実測の headroom は d0-d8 が +0〜+8 ＝ MAX_YIELD[CARROT]=3 で割ると 0-2 枚。したがって開幕（メロン/イチゴの位相が決まる d0-d8）はほぼ不変で、差は中盤以降に出る。★この『ほぼ』はバイト同一の主張ではない —— 本世代は leak_check を実測していない（d0-d8 の完全一致率は未測定）。50seed eval の前提には使わないこと。",
+  "mechanisms": [
+    {
+      "name": "market_conditioned_fill_crop",
+      "since": "gen0057",
+      "what": "空きタイルを埋める作物を、その試合の market.inventory[CARROT] が I0 からどれだけ下にあるか（headroom）で決める。headroom // MAX_YIELD[CARROT] 枚までを CARROT に、残りは従来どおり WHEAT。対象は小麦計画の終盤ブロック(from_day>=19)と計画外 fallback タイル。優先度は CARROT 計画の 2.24（gen0048 Stage A の分類の一貫適用）。",
+      "constants": {
+        "WHEAT_LATE_FROM_DAY": 19,
+        "budget_formula": "(I0 - minv[CARROT]) // MAX_YIELD[CARROT]",
+        "carrot_last_plant_day": 26,
+        "carrot_plant_pri": 2.24
+      },
+      "origin": "observed",
+      "ablation": "records/eval_gen0051.json（親＝この機構が無い版）。EXP0053（同じ『空きタイルを埋める』を小麦で・層2昇格あり＝マージン −$682）と EXP0038（同じことを小麦で・訪問完了機構＝+$44）が出口だけ違う対照になる。",
+      "why": "小麦は相手が 105-487 個/試合 買う品目（BUY_PRODUCT 可）なので増産が相手の投入コストを下げる＝原理 3 の『増やす贈り物』。ニンジンは買い戻せず、12/12 の試合で季節末在庫が I0 を 128-659 個下回る（町の需要が両者の供給を上回り続ける）ので価格は基準以上に張り付く。★方向は 50seed eval が確定する。期待値は正直に +$1.5-2.5k が上限で、+$500 以下なら検出不能で終わる（タイル日あたり粗利は小麦 $32・ニンジン $34 でほぼ同じ＝効くのは贈り物経路の有無だけ）。",
+      "measured": "★レビュー検証（2026-09-19 c5）で、市場在庫による枚数制限は**実測では binding でない**ことが判明した（FIX0024）。予算が毎ターン再発行されるため、実際に動いているのは『終盤ブロック(from_day>=19)と計画外 fallback タイルを、headroom>0 の間ニンジンで埋める』機構。スモーク実測のニンジン植付は seed7 44 枚 / seed14 16 枚 / seed42 55 枚（親はそれぞれ 13/11/10 枚＝すべて d25 以降の既存 carrot 機構ぶん）で、新規ぶんは d03/d05/d06 と d08-d26 に散る。**したがって 50 シード eval が測っているのは『市場を見る判断』ではなく『埋め作物をニンジンにしたこと』である。** さらに種代が現金と RESERVE を経由して家畜・土地・雇用の購入まで動かしており（seed7: BUY_ANIMAL SHEEP 8→4・BUY_LAND 3→2・HIRE 315→298、seed42: BUY_PRODUCT WHEAT 119→165）、『作物だけを替えた』という帰属も厳密には成立しない。詳細 knowledge/analysis/2026-09-19_gen0057-review-verification.md"
+    }
+  ],
+  "review": {
+    "date": "2026-09-19",
+    "reviewer": "codex",
+    "model": "gpt-5.6-sol / reasoning high",
+    "thread": "<redacted-id>",
+    "candidate_sha256": "e7ab297b327a388939b47be57505b41cd42c61be5ed3c1895defdcf378ac0e23",
+    "checklist": "knowledge/REVIEW_CHECKLIST.md",
+    "diff_range": "agents/gen0051/main.py..agents/gen0057/main.py",
+    "verification": "knowledge/analysis/2026-09-19_gen0057-review-verification.md",
+    "findings": [
+      {
+        "severity": "major",
+        "what": "置き換え枚数の予算が毎ターン再発行され上限として機能しない（carrot_fill_left はターン内ローカルで既植付・既購入を控除しない）。実測: d03 は予算1枚/ターンに対し3枚植付、d18 以降は予算 36-57 枚/ターンで空きタイルを常に上回る＝発火窓で binding でない。『市場在庫が許す枚数だけ』という機構説明は成立しない",
+        "resolution": "deferred",
+        "ledger": "FIX0024"
+      },
+      {
+        "severity": "minor",
+        "what": "置換元は d25 で閉じるのに window_end.setdefault('CARROT', 26) が d26 を立て、d25 夕方に使えない種を買いうる。実害は現状小（季節末残種は親と同等以下）",
+        "resolution": "deferred",
+        "ledger": "FIX0025"
+      },
+      {
+        "severity": "minor",
+        "what": "予算の除数 MAX_YIELD['CARROT']=3 はエンジンの CROPS['CARROT']['max_yield']=4 と異なる（無肥料到達値が 3 なので運用上は正しいが、定数名とコメント『エンジン CROPS の max_yield』が誤り）",
+        "resolution": "deferred",
+        "ledger": "FIX0024"
+      },
+      {
+        "severity": "minor",
+        "what": "『優先度は小麦計画のまま＝層は動かさない』というコメントの 8 行下で層2（2.24）に上げている。層の変更は意図どおりだがコメントだけが旧設計のまま残る",
+        "resolution": "deferred",
+        "ledger": "FIX0026"
+      },
+      {
+        "severity": "minor",
+        "what": "market.inventory['CARROT'] が None なら TypeError で全 PASS になりうる、との指摘",
+        "resolution": "rejected",
+        "note": "gen0057 が持ち込んだ欠陥ではない。親 gen0051 の beta_sell_cap() が既に同じ算術をしている（main.py:579）。観測仕様上は整数。新規性が無いので台帳に足さない"
+      }
+    ],
+    "blocking_resolved": true,
+    "blocking_note": "P0（即死級: 例外・1秒超過・ルール違反）はゼロ。profile 実測 max 0.0476s。P1 は 2 件ともコードの挙動ではなく『実装 ≠ 設計の説明』で、記録側を実測に合わせ、コード修正は FIX0024/0025/0026 として次世代に回した。**main.py は 50 シード eval の実行中なので一切触っていない**（SHA は据え置き）"
+  }
+}

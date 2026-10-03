@@ -1,0 +1,134 @@
+{
+ "gen": "gen0056",
+ "parent": "gen0051",
+ "exp": "EXP0056",
+ "date": "2026-09-13",
+ "hypothesis": "王者 gen0051 は rating 4σ 上だが money_delta_paired −243.4・slope_delta −331.1 の『相手を削るが自分は伸びない』型（主題＝自資金と slope の回復）。上位 #1 の解剖（Analyst 2026-09-13）と EXP0055 の棄却から、自資金を上げる正解は非競合の小市場（卵）ではなく『相手適応の production で共有市場を取る』と確定した。gen0056 は単一レバー＝相手が乳の設置牛を積み共有乳市場が床に張り付く『乳の洪水型』を検知し、発火時だけ (a) cow_target 8→6 と (b) 乳の収穫バンクゲート即時解除を行う。洪水相手では乳価が SELL_FLOORS[MILK]=96 に戻らず gen0051 のバンクゲートが unlock せず、乳が牛上に max_held−1 まで滞留し d28 強制収穫でより深い glut にダンプされる。ゲート即時解除は総量を変えず前倒し（早売り＝市場飽和を早め相手の高値窓も潰す denial 増強）。非洪水（starter/georgy=相手牛0／kaito/rayk=牛多いが市場が床にならない）では milk_flood=False で全分岐が閉じ gen0051 とバイト同一。EXP0052 が両半分を実測済み（強帯マージン +596 [+125,+1068]・弱帯損は非発火同一性で構造的に 0 化）。strong_margin_delta_paired と money/slope に直接効く見込み。",
+ "source": "knowledge/analysis/2026-09-13_gen0056-lever-reconciliation.md（主推奨・跳躍候補 B）／knowledge/analysis/2026-09-13_majkel-new-type.md（上位 #1 も共有市場で勝つ・denial-positive）／EXP0055（卵＝非競合小市場は差の源泉でないと確定）／EXP0052（相手適応の両半分を実測）／DIRECTIVES line 40-44（cycle1 の『乳の売却ルーティング』を opus が是正）。IDEA_POLICY §2（未使用の観測=obs[farms][opp] 牛数・minv[MILK] 軌跡の利用）＋§1。単独 sweep でも常時○○型でもない（発火は相手供給と市場の連言で条件付け）。",
+ "changes": [
+  "gen0051（王者）を親とするコピー＋単一レバー『相手適応型の乳エクスポージャ』。差分は milk_flood() の新設と、その真偽を cow_target・バンクゲートに配線する 4 hunk のみ。",
+  "milk_flood(farms, player, prices, minv): 連言検知。(1) 相手農場の設置 COW 数 >= FLOOD_COW_HERD=6（obs[farms][opp] は public=AGENTS.md。starter/georgy=相手牛0 で必ず False＝自己発火を防ぐ）AND (2) 共有乳市場が床（price<=SELL_FLOORS[MILK]=96 かつ minv[MILK]>=I0。kaito_v48 牛10/rayk_c95 牛9 は d16 乳価 233/224 で市場が床にならず除外）。両成立時だけ True。",
+  "cow_target(day, flooded=False): シグネチャに flooded を追加。`return 8` → `return 6 if flooded else 8`（d0-7 ランプは不変。既存牛は売らず 7・8 頭目を買わないだけ＝限界価値最小の 2 頭を削る）。非洪水では flooded=False で従来と同一値。",
+  "収穫バンクゲート（旧 gen0051 の beta_harvest_unlock_gate 内）: `if milk_flooded and prod == \"MILK\": unlock = True`（洪水時のみ MILK のゲートを即解除。非 MILK・非洪水は分岐が閉じ従来どおり）。",
+  "配線 2 箇所: want_built の cow_target(min(day+1,29), milk_flooded)／購入ループの cow_target(day, milk_flooded)。",
+  "他機構・継承 8 機構（early_sw_strawberry_wave・carrot_final_day_settlement 他）は 1 行も触っていない。gen0056 = gen0051 ∪ milk_flood 検知（diff で確認：unified diff は 6 hunk のみ）。"
+ ],
+ "status": "in_progress (eval キュー投入済み・判定待ち。2026-09-13 夜 cycle3)",
+ "smoke": "vs starter seed42（非発火路）: エラー 0・両者 DONE・final_money [103829.0, 3847.0] ＝ gen0051 vs starter seed42 とバイト完全一致（非発火路が親と同一の実証）。vs boatlee_v29 seed42（発火路）: エラー 0・両者 DONE・final_money [54776.0, 96912.0]（発火路が crash しない実証）。micro_audit --assert: critical-three (noop_total/unfed_days/uncared_days) 両路とも全 0 = OK（exit 0）。残る NG（tile_util/wheat_yield/melon_yield/strawberry_yield/inplace_share/last_water_hour）は FIX0013 強帯目標（--limit 対象）で gen0051 の NG 集合と同一＝非発火路がバイト同一なので新規回帰は構造的に 0。check_fixes applied 14/14・open 6（gen0051 と同一。FIX0008 carrot 部分適用で open）。profile max 0.01222s・p99 0.00034s（<1.0 OK）。",
+ "leak_check": "非発火路は gen0051 とバイト同一（vs starter seed42 の final_money 完全一致で実証）。milk_flood は相手牛0 の型（starter/georgy）で必ず False、市場が床にならない型（kaito/rayk）でも False＝連言により発火は洪水型（boatlee/sokolovsky/pilkwang/tetsutani/prvsiyan/yhay81/dmitriigluzdov 帯）に限定。発火は乳価が床に落ちる d15-16 以降（milk_flood の市場項）なので d0-14 は全相手でバイト同一。cow_target(flooded=True)=6 は既に牛 8 頭を持つ現プールでは『7・8 頭目を買わない』no-op（既存牛は売らない）＝実効レバーは (b) バンクゲート即時解除。",
+ "mechanisms": [
+  {
+   "name": "opponent_adaptive_milk_exposure",
+   "since": "gen0056",
+   "what": "『乳の洪水型』を相手供給（obs[farms][opp] の設置 COW 数）と共有市場（minv[MILK] 在庫・prices[MILK] 価格の床）の連言で検知し、発火時だけ (a) cow_target 8→6（限界価値最小の 2 頭を買わない）と (b) 乳の収穫バンクゲート即時解除（総量不変・早売りで飽和前倒し＝denial 増強）を行う。非発火時は milk_flood=False で全分岐が閉じ gen0051 とバイト同一。信号は連言必須：牛頭数だけでは kaito/rayk（大群だが市場飽和させない非洪水）を誤発火し EXP0052 の弱帯純損を再演、市場床だけでは starter 相手でも自分の乳ダンプで自己発火する（2026-09-10 §測定器批判）。",
+   "constants": {
+    "FLOOD_COW_HERD": 6,
+    "milk_sell_floor": 96,
+    "cow_target_flooded": 6,
+    "cow_target_normal": 8,
+    "market_floor_conjunction": "prices[MILK]<=SELL_FLOORS[MILK] AND minv[MILK]>=I0",
+    "opp_farms_source": "obs[farms][opp].tiles (public per AGENTS.md)"
+   },
+   "origin": "observed",
+   "ablation": "records/eval_gen0051.json（この機構を外した親王者＝非発火路とバイト同一の版）。gen0056 vs gen0051 が milk_flood レバーの isolated 効果。",
+   "why": "王者 gen0051 は自資金・slope が伸びない『denial 型』。EXP0055 で自資金を上げる正解が非競合小市場（卵）でないと確定し、Analyst 解剖で上位 #1 も共有市場で denial-positive に勝つと分かった。EXP0052 が相手適応の両半分を実測済み（強帯マージン +596 [+125,+1068]・非発火同一性で弱帯損 0 化）。洪水相手では gen0051 のバンクゲートが unlock せず乳が牛上に滞留し d28 強制収穫で深い glut にダンプされる穴を、即時解除で前倒しダンプに変え denial を増強しつつ自陣の乳実現価値も戻す。IDEA_POLICY §2（未使用の観測の利用）。★方向は 50seed eval が確定。"
+  },
+  {
+   "name": "early_sw_strawberry_wave",
+   "since": "gen0049",
+   "what": "SW クアドラント購入日 d11→d8・SW イチゴ(rows 6-8 の 15 枚)の from_day 10→8 を型ごと同時前倒し（gen0051 から継承・変更なし）。",
+   "constants": {
+    "sw_land_day": 8,
+    "sw_strawberry_from_day": 8,
+    "sw_tiles_count": 15,
+    "window": "(4,13)_unchanged"
+   },
+   "origin": "observed",
+   "ablation": "records/eval_gen0050.json（Stage B 無し）",
+   "why": "gen0051 の昇格根拠（強帯マージン正）。gen0056 では変更していないので台帳は EXP0051 を参照。"
+  },
+  {
+   "name": "carrot_final_day_settlement",
+   "since": "gen0050",
+   "what": "carrot を d28 までに全収穫し d29 を DROP+SELL 搬送に空ける終盤清算（gen0051 から継承・変更なし）。",
+   "constants": {
+    "last_plant_day": 26,
+    "final_harvest_ripe": "age >= 3 or (day >= FINAL_DAY - 1 and age >= 2)",
+    "FINAL_DAY": 29,
+    "carried_sell_guard": "actions[_ui][0] == \"DROP\""
+   },
+   "origin": "derived",
+   "ablation": "records/eval_gen0049.json",
+   "why": "gen0051 から継承。台帳は EXP0050/EXP0051 を参照。"
+  }
+ ],
+ "mechanisms_doc": "gen0056 = gen0051（王者）のコピー＋単一の新機構 opponent_adaptive_milk_exposure（milk_flood 検知 + cow_target/バンクゲートへの配線 6 hunk）。継承 8 機構（early_sw_strawberry_wave・carrot_final_day_settlement・carrot_layer2_reclass・fast_carrot_rotation・funded_wool_expansion・feed_buffer_lookahead_on_expansion・expansion_hands_bump・market_budget_reconcile・beta_harvest_unlock_gate）は 1 行も触っていない（非発火路が親とバイト同一なことで実証）。台帳の詳細は gen0051 系譜を参照。FIX0008 は carrot 部分適用で open のまま（継承）。",
+ "candidate_sha256": "c8601f2e55b2121f1c68557857ef1d1a991b78dd9dae5a8724d16418fe4dca6d",
+ "notes": "親（コード基盤）= gen0051（王者）。eval baseline = records/eval_gen0051.json（12 体新プール 6e07bb6a・50 シード・rating 674.3±17.8）。eval は Supervisor がキューに積む（本世代からは submit/approve/commit しない）。Codex レビューは Supervisor が eval 後・昇格前に実施（本 meta の review は placeholder。捏造しない）。今夜は提出運用の特例で promote も承認制（DIRECTIVES ★質問への回答待ち）＝gate.pass でも自動提出せず HANDOFF 承認待ちへ置く。candidate_sha256 は現 main.py の値でレビュー前にコードを触ったら取り直す。",
+ "review": {
+  "date": "2026-09-14",
+  "reviewer": "codex (gpt-5.6-sol / reasoning high)",
+  "candidate_sha256": "c8601f2e55b2121f1c68557857ef1d1a991b78dd9dae5a8724d16418fe4dca6d",
+  "checklist": "knowledge/REVIEW_CHECKLIST.md",
+  "diff_range": "agents/gen0051/main.py..agents/gen0056/main.py",
+  "thread_id": "<redacted-id>",
+  "findings": [
+   {
+    "severity": "major",
+    "what": "P1: 連言（相手牛>=6 AND 乳価<=96 かつ在庫>=I0）は床が相手由来であることを保証しない。自分のダンプで床に落ちても相手が牛を持つだけで発火する。Claude 検証: eval の (相手,seed,席) 対応で親と完全一致は starter/georgy 100/100 のみ、kaito 35・rayk 33・gen0044 35・gen0045 32・boatlee_v29 24/100＝「kaito/rayk は必ず False・非発火バイト同一」の設計主張は偽。",
+    "resolution": "deferred"
+   },
+   {
+    "severity": "major",
+    "what": "P1: MILK バンクゲート即時解除は条件式こそ MILK 限定だが、優先度 2.0 の HARVEST が全品目共通の作業キューと競合し、牛から shed へ移した乳が全品目合算の shed_pressure（main.py:1363、>=SHED_DUMP=78 でプレミアム品も全量ダンプ main.py:1406/1428）を押し上げる＝「総量不変の前倒し」ではない。Claude 検証: 経路の存在をコードで確認・自資金 −244.2 [−376.9,−111.5]・強帯自資金 −188.9 [−354.7,−23.2] と整合（因果分解は未実施）。",
+    "resolution": "deferred"
+   },
+   {
+    "severity": "major",
+    "what": "P1: ヒステリシスなし。milk_flood は毎ターン再評価され cow_target が 6↔8 を往復する（COW last_buy=d18 内で False に戻った瞬間に 7・8 頭目を買いうる）。Codex は boatlee s42 で step338 True→389 False→401 True を観測。Claude 検証: コード上確認（main.py:535・1485）。実害は現プールでは既に 8 頭のため小。",
+    "resolution": "deferred"
+   },
+   {
+    "severity": "minor",
+    "what": "P2: FLOOD_COW_HERD=6 の origin=derived は根拠が自軍ランプ値で、相手供給と町需要の損益分岐から導いていない（rayk/kaito を分離できていない）。observed/tuned が妥当。",
+    "resolution": "deferred"
+   }
+  ],
+  "blocking_resolved": true,
+  "decision": "fatal なし（例外パス・観測の読み・1 秒制約・終盤清算は Codex が問題なしと確認）。ただし中心の設計主張（非発火同一・自資金回復）が実装と 50 seed で偽と確認されたため、Supervisor は昇格を推奨しない（HANDOFF 承認待ちには積まない）。判断は人。"
+ },
+ "eval": {
+  "status": "done",
+  "file": "records/eval_gen0056.json",
+  "pool_sha256": "6e07bb6a",
+  "seeds": 50,
+  "gate_pass": true,
+  "pass_route": "margin",
+  "margin_delta_paired": [
+   136.9,
+   55.0,
+   218.7
+  ],
+  "money_delta_paired": [
+   -244.2,
+   -376.9,
+   -111.5
+  ],
+  "strong_margin_delta_paired": [
+   131.2,
+   11.4,
+   251.0
+  ],
+  "strong_money_delta_paired": [
+   -188.9,
+   -354.7,
+   -23.2
+  ],
+  "rating_delta": [
+   9.1,
+   -40.1,
+   58.3
+  ],
+  "slope_delta": -45.8
+ }
+}

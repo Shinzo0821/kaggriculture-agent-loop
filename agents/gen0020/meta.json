@@ -1,0 +1,13 @@
+{
+  "gen": "gen0020",
+  "parent": "gen0018",
+  "date": "2026-09-05",
+  "track": "上位型の丸ごと実装（3クアドラント拡張・メロンIPO・畜産・イチゴ）",
+  "hypothesis": "LB上位の日次骨格（土地2枚 d6/d10・メロンIPO d10で再投資・牛羊拡張・イチゴ2波・小麦自給）を丸ごと実装すれば、gen0018の$52kを大きく超え強帯($80k+)に届く。",
+  "source": "knowledge/scout/2026-09-04_public-knowledge.md §2/§4/§5（実装骨格の出典）。ただし cycle1 の Analyst 実測（knowledge/analysis/2026-09-05_top-winner-vs-loser.md）が scout §2 の一部（1牛4羊/メロン8/hands14/d3分岐なし）を棄却しており、本実装はその棄却前の骨格に基づく点に注意。",
+  "status": "FAILED_NOT_PROMOTED",
+  "smoke": "vs gen0018 seed42/7 DONE/DONE。profile max 0.012s (<1s OK)。",
+  "result_summary": "vs gen0018 seed42=$11,058 / seed7=$2,586（相手 $68-74k）。破滅級の低資金。昇格・提出とも不可。",
+  "failure_diagnosis": "メロンIPO(d10, ~35個収穫)は発火するが、proceeds を全額 SW土地+2波メロン/イチゴ+動物10+hands14 の追加拡張に即投入 → 現金buffer $20。以後 feed用小麦を買えず、小麦自給も不足で、d12に10頭いた動物がd14に3頭へescape（milk/wool エンジン喪失）。3クアドラントに拡張したが labor/現金が維持に足りず作物も雑草化 → 最終$6-11k。over-reinvestment without survival reserve。gen0018は1クアドラント持続で$52k。",
+  "next": "拡張を labor/feed が支えられる水準に抑える。cycle2 で『メロン proceeds を運転資金として保持（土地は2枚まで・現金リザーブ）』を試験。詳細は EXP0017。"
+}

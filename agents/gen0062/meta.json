@@ -1,0 +1,108 @@
+{
+ "gen": "gen0062",
+ "parent": "gen0060",
+ "date": "2026-09-20",
+ "exp": "EXP0062",
+ "candidate_sha256_at_write": "79816e01595c55cc534dff4cbb2d6a58c5898932a76887160682b8ec9c609394",
+ "hypothesis": "9/19 に独立に `gate.pass` した 2 系統を 1 本にまとめる。gen0058→gen0060（到達可能性ゲート＋所有権のバックログ解除）は **hands の PASS 側**を、gen0059（farmer をゾーン割当の一員にする）は **farmer の PASS 431 h 側**を回収した。gen0059 の親は gen0051 なので**両者は同じコードを共有していない**＝機構としては独立で、合流すれば両方の回収が同時に効く可能性がある。ただし `move-budget-decomposition.md` §7-B の『相乗する』は未検証で、**加算を期待値にしない**（farmer が区画を持つと hands の区画は小さくなり、所有権解除の対象量そのものが減りうる）。IDEA_POLICY §4『労働割当の構造変更』。",
+ "merge_map": "state/plans/2026-09-20_gen0062-merge-map.md",
+ "mechanisms": [
+  {
+   "name": "farmer_zone_ownership",
+   "since": "gen0059（本世代で gen0060 系統へ移植）",
+   "what": "`n_zones = max(n_hands, hands_target(day, expand)) + 1` として farmer にも区画を 1 つ持たせ、所有者として自ゾーンの todo を取れるようにする。farmer の区画は**シェッドからの最短距離が最小の区画**（盤面の関数。恣意的な定数ではない）。`unit_zid` / `zone_pos` / `zone_unit` で unit↔zone の対応を持ち、`_owner_can_come` の未雇用判定を `zone_pos[owner] is None` に置き換える。シェッド遊撃（動物 PICKUP / PLACE）は `farmer_shed` として自ゾーン枠でも拾える例外にし、`eff = min(pri, 0.85)` と **3 段 crit（0=LOSS_PRIS / 1=シェッド遊撃 / 2=通常）**を与える。farmer の一括 PICKUP にだけ `hour >= 2` を課す。",
+   "constants": {
+    "新規定数": "0 件（`+1`・`hour >= 2` はどちらも既存コードに在った条件の流用）"
+   },
+   "origin": "port（gen0059 = EXP0059。Codex gen0059#P1-1 / P1-3 の修正込み）",
+   "ablation": "records/eval_gen0060.json（親＝新王者。同一プール e3f96592・50 シード）",
+   "why": "王者の farmer は 719 unit-hour の 60% を PASS し生産行動は 30 日で 58 回だけ（実勢 SOTA の 7turn は PASS 8% / 382 回）。原因は farmer が `zid = -1` でゾーンの外に居ること。",
+   "measured": "vs starter 3 seed（決定論的な行動会計。資金の判断には使わない。総 unit-hour は親と同じ 7,162）: **farmer PASS 206/212/211 → 102/101/103**（29% → 14%）・**farmer 生産行動 157/148/149 → 296/298/293**（+139/+150/+144）。**ただし hands 側は逆に減る**: hands PASS 814/814/883 → 904/915/967、hands 生産行動 2645/2664/2646 → 2566/2548/2521（−79/−116/−125）。**差し引きの生産行動は +60 / +34 / +19 にとどまる**（farmer が区画を持つぶん hands の区画が小さくなり、所有権解除が解放できる量が減る）＝ **2 機構は加算ではなく一部食い合う。**"
+  },
+  {
+   "name": "merge_zone_hand_decoupling",
+   "since": "gen0062",
+   "what": "親 gen0060 の `_zone_backlog_doable` / `_rank` は『ゾーン番号 == hand の番号』を 3 箇所で仮定していた（`z >= len(hand_pos)` / `invs[z + 1]` / `hand_pos[z]`）。farmer が区画を持つと全部壊れるので、それぞれ `zone_pos[z] is None` / `zone_unit[z]` 経由の逆引き / `zone_pos[z]` に置き換えた。併せて `_rank` に **farmer の役割バイアス（PLACE の `eff = min(pri, 0.85)`）と 3 段 crit** を反映した ——反映しないと『所有者の順位付けの再現』が嘘になり、farmer の区画で保護と解放が実挙動とずれる（PLACE は pri 2.4 でも eff 0.85 ＝ 層が変わる）。",
+   "constants": {},
+   "origin": "merge（`state/plans/2026-09-20_gen0062-merge-map.md` §3）",
+   "why": "合流固有の穴。親 2 世代のどちらにも存在しないので、レビューの最重要観点。"
+  },
+  {
+   "name": "fix0033_comment_sync",
+   "since": "gen0062",
+   "what": "FIX0033（minor・gen0060 レビューの deferred）: `_zone_backlog_doable` 前後のコメントを実装に合わせた（『最近傍順』→順位順、『VISIT_LAYER は入れない』→入れている、『先頭は必ず保護される』→ターン開始時点の静的近似）。**挙動の変更は 1 行も無い。**",
+   "constants": {},
+   "origin": "ledger（FIX0033。台帳の `fix` が『派生世代でコメントを実装に合わせる』）"
+  }
+ ],
+ "not_included": {
+  "FIX0028 / FIX0029": "最終日の終端規則。**資金への効果ゼロが実測で確定**（FIX0028+FIX0029 だけの版は親と 3/3 シードで最終資金が完全一致。`state/STATUS.md` 2026-09-19 cycle8）。混ぜると 2 機構の相互作用への帰属が割れる（gen0057 の反省）。台帳に open のまま残す。",
+  "FIX0031": "gen0061 で測定中（兄弟枝）。対応付きスモークでは 3/3 負。"
+ },
+ "gauntlet": {
+  "static_check": "OK",
+  "check_fixes": "NG 2 件（FIX0028 / FIX0029）= 合流地図 §6 の**期待どおり**（台帳では applied だが適用は兄弟枝 gen0061。世代は不変なので親 gen0060 も同じ 2 件が出る）。applied 15/17 検出・回帰 0。",
+  "smoke": "vs starter seed 7/42/123 = $128,278 / $113,351 / $113,421（**資金は品質の指標ではない**: 店抽選と市場価格は行動で分岐する）。",
+  "audit_replay": "unfed 0 日 / uncared 0 日（d1-28）・3 seed とも。**動物は d8 に 12 頭**（合流地図 §2 が指定した再発検知: gen0059 の『8 頭で止まる』事故は起きていない）。",
+  "micro_audit": "critical-three（unfed / uncared / noop）3 seed とも 0。**NG の集合は親 gen0060 と完全に同一**（inplace_share / last_water_hour / melon_yield / strawberry_yield / tile_util / wheat_yield ＝ すべて王者系譜が元から届いていない基準）。**新規 NG は 0 件で、親の seed123 の `tile_revisit_share` NG（0.0204）は解消した（0.0176）。** `mean_hop_distance` 1.079-1.084（gen0059/gen0060 は 1.17-1.18）・`moves3plus_share` 0.151-0.156（親 0.129-0.140 ＝ 悪化）。",
+  "profile_agent": "mean 0.00102 s / p99 0.00441 s / max 0.04483 s（1 秒制約に対し 22 倍の余裕）"
+ },
+ "review": {
+  "date": "2026-09-20",
+  "reviewer": "codex",
+  "model": "gpt-5.6-sol / reasoning high",
+  "thread": "<redacted-id>",
+  "rounds": 3,
+  "candidate_sha256": "79816e01595c55cc534dff4cbb2d6a58c5898932a76887160682b8ec9c609394",
+  "checklist": "knowledge/REVIEW_CHECKLIST.md",
+  "extra_checklist": "state/plans/2026-09-20_gen0062-merge-map.md §4（合流固有 7 点）",
+  "diff_range": "agents/gen0060/main.py..agents/gen0062/main.py",
+  "note": "**P0 ゼロ。最終判定『50 シード評価へ進めてよい』。** 実行コードの修正は 0 行で、round2/3 で変えたのは**コメントと設計文書だけ**（seed 42 の対 starter 最終資金が編集前後で 113,351 のまま一致することを確認）。round1 の P1 3 件はいずれも『合流で新しく生まれた欠陥』ではなく**親から在る近似の適用範囲が広がったもの**と判定し、台帳 FIX0034-0036 に登録して次世代へ回した（Codex も round2 で minor への降格に同意）。**round2 の最大の成果は、c3 が自分で書いた設計根拠の誤りを Codex が撤回させたこと**（下の findings[4]）。",
+  "findings": [
+   {
+    "severity": "minor",
+    "what": "farmer の自ゾーン外の仕事（SHEDOP / 他ゾーンの PLACE）が `_zone_backlog_doable` の巡回予算に計上されず、farmer ゾーンが過剰保護される（＝暇な hand に解放されない）。規模の実測: 実行回数で 25-29 回 / 30 日、PLACE 12 は動物 12 頭ぶんで d0-d8 に集中（目的地への MOVE は未計上）。",
+    "resolution": "deferred"
+   },
+   {
+    "severity": "minor",
+    "what": "既に行動を確定した unit が FEED/CARE の最寄り判定 `ds` で `dmin` を作り、その todo に到達できる後続 unit を弾く。**gen0051 から在る系譜全体の性質**で、gen0060 のレビューでも同じ性質を根拠に FIX0030 の dmin 案が撤回されている。合流で変わったのは対象が farmer ゾーンにも広がったことだけ。",
+    "resolution": "deferred"
+   },
+   {
+    "severity": "minor",
+    "what": "合流の設計根拠『携行中の動物は EOD にシェッドへ戻るので、今日着けない PLACE を選ばない損失はゼロ』の反例。エンジンの `_drop_inventories_to_shed` はシェッド容量を超える分を破棄する（README: overflow is lost）。実測では `shed + carried` が容量 100 を超える瞬間はあるが EOD に動物を携行していた日は 0 件 ＝ 3 seed では未発火。",
+    "resolution": "deferred"
+   },
+   {
+    "severity": "minor",
+    "what": "G1（到達可能性ゲート）と G2（FEED/CARE の最寄り判定）の carve-out が FIX0030 以降一致していないのに、コードのコメントと merge map は『揃える』『両方とも LOSS_PRIS のみ』のままだった（実装 ≠ 説明）。Codex の判断は『コードは変えず文書を実装に同期せよ』——G2 に免除を足す方がむしろ危険。",
+    "resolution": "fixed"
+   },
+   {
+    "severity": "minor",
+    "what": "**c3 が上の非対称の理由として書いた説明そのものが誤っていた。**『到達不能な近いユニットが `dmin` を作り、到達できる遠いユニットを弾く』は成立しない（ゲートは距離の単調関数なので、降りるユニットは通るユニットより必ず遠い）。正しい理由は『全ユニットが到達不能な盤面では `ds` が空 → `dmin=None` → 最寄り判定が無効になり、誰が取ってもよくなる』。",
+    "resolution": "fixed"
+   }
+  ],
+  "verified_ok": [
+   "例外パス: `agent()` は例外時も action dict を返す",
+   "1 ターン 1 秒: Codex 独立計測で mean 0.00090 s / p99 0.00194 s / max 0.0298 s",
+   "ゾーン↔unit の 3 箇所の仮定（`z >= len(hand_pos)` / `invs[z+1]` / `hand_pos[z]`）はすべて置換済み・旧形の残存なし",
+   "`_rank()` は対象 todo について `(lay, crit, d, eff, 挿入順)` を `eval_todos` と一致させている",
+   "同一 todo の二重取得は `claimed` と farmer-first の走査順で防げている",
+   "日替わりの farmer 位置リセット: 毎ターン `me['farmer']` から `zone_pos[farmer_zone]` を作っており固定値の持ち回りなし",
+   "`hands_target == 0` の日の `n_zones = max(n_hands, 0) + 1` は farmer 1 区画 + 実在 hand 数で正しい（幽霊ゾーンは出ない）",
+   "static_check OK"
+  ],
+  "deferred_to_ledger": [
+   "FIX0034",
+   "FIX0035",
+   "FIX0036",
+   "FIX0037"
+  ],
+  "blocking_resolved": true
+ },
+ "eval": null,
+ "note": "**提出資格なし（`review` が null）。** 昇格前 Codex レビューを通し、SHA 一致を確認してから eval の結果を昇格に使うこと。"
+}

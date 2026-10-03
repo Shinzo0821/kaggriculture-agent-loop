@@ -1,0 +1,12 @@
+{
+  "generation": "gen0015",
+  "parent": "gen0013",
+  "track": "B",
+  "date": "2026-09-04",
+  "hypothesis": "cycle2 のリプレイ解剖でメロンスプリントが設計7タイルに対し実測3タイルで頭打ち（d4時点 seeds MELON:1、粗利+$4.4k=設計$7.5k の半分以下）と判明。gen0013 の自主キャップ min(...,4) が第1波の種入手を律速していた。README §Market に BUY_SEED の数量上限は無い（maxMarketOrdersPerTurn=10 は注文数の上限で数量ではない）。d0 は COW購入後 money=2600 で affordable=7 と7個買える現金がありながらキャップ4で頭打ち＝現金でなくキャップが律速。キャップをタイル数7へ上げれば d0 に第1波7種を一括購入し、以後は hands7 の労働だけが植付律速になる（EXP0013 の意図した状態）。設計粗利$7.5k が出れば gen0013 を絶対資金で上回るはず",
+  "changes": [
+    "メロン種の1ターン購入キャップ 4→MELON_SEED_BUY_CAP=len(MELON_TILES)=7（gen0013 との唯一の差分。MELON_CASH_BUFFER=2000 は不変で動物購入を保護）"
+  ],
+  "eval": "records/eval_gen0015.json",
+  "experiment": "knowledge/experiments/EXP0015_d0-melon-seed-priority.md"
+}

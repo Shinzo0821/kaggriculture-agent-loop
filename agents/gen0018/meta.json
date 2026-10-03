@@ -1,0 +1,12 @@
+{
+  "generation": "gen0018",
+  "parent": "gen0013",
+  "track": "A",
+  "date": "2026-09-04",
+  "hypothesis": "cycle6 敗戦分析(飼料小麦ネット漏れ −$6-8k/戦)を受け、gen0013 の飼料小麦売買を計測。ローカル計測(seed42/11/303 等)で DUMP_DAY(28) に「買→全ダンプ→買」の往復ビンタを発見: day>=DUMP_DAY で shed_wheat を毎ターン全量ダンプする一方、LAST_FEED_DAY=28 の給餌用に stock<頭数 で毎ターン買い直すため、1戦あたり 30-80個(全買いの12-27%)が d28 に無駄往復。純効率改善で局所資金増を狙う。",
+  "changes": [
+    "市場売却の WHEAT ダンプ条件のみ変更(gen0013 との唯一の差分): DUMP_DAY(28) では shed_wheat - feed_buffer だけ売り飼料バッファ(3n+2)を残す。stock>=3n+2>頭数 で買いも自動停止し d28 往復を排除。全量ダンプは FINAL_DAY(29) のみ。"
+  ],
+  "eval": "records/eval_gen0018.json",
+  "experiment": "knowledge/experiments/EXP0018_wheat-d28-churn.md"
+}

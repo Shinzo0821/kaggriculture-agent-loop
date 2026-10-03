@@ -1,0 +1,35 @@
+{
+ "gen": "gen0035",
+ "parent": "gen0034",
+ "exp": "EXP0035",
+ "date": "2026-09-06",
+ "track": "作付けの型: SW をイチゴに寄せる（メロンの第 2 波を NW 跡地だけに縮める）",
+ "hypothesis": "価格モデル（`MARKET_PARAMS`）と実測から、**詰まっているのは『出口』全体ではなく品目**。2 人で 445 個売ってもイチゴの市場在庫は I0−2（町が全部消費）で最終価格は base 120 に対し 132。一方 MILK は I0+74 で $5、FERTILIZER は I0+462 で $8、MELON は I0+132 で $76。強帯 prvsiyan_v189c は d15-20 に **イチゴ 37 枚**（こちらは 12 枚）で、動物の数は同じ（牛 8・羊 4）。イチゴ 1 株 = 種 $100 → age10 から隔日 4 回 × 2 個 = 8 個 × $130-180 = $1,000-1,400。SW の 25 枚をメロン 4 + イチゴ 15 + 小麦 5 ではなく **イチゴ 19 + 小麦 5** で埋める。",
+ "source": "knowledge/analysis/2026-09-06_which-market-is-actually-closed.md",
+ "changes": [
+  "MELON: SW の 4 枚を削除（第 1 波 8 枚 ＋ NW 跡地の第 2 波は維持）。",
+  "STRAWBERRY: SW を全面イチゴ 19 枚に（12 → 31 枚）。SW タイルの from_day を 10 → 11（land_target が SW を買うのが d11 で、それ以前は LOCKED で PLANT が no-op になるため）。",
+  "WHEAT: SW 南列の from_day を 10 → 11。d19 のブロックから SW の 4 枚を削除。"
+ ],
+ "smoke": "vs rayk_c95 s42 $52.3k / s7 $55.8k、両者 DONE。",
+ "status": "EVAL_QUEUED",
+ "notes": "24 シードで方向判断 → 良ければ 50 シードと Codex レビュー。",
+ "mechanisms": [
+  {
+   "name": "crop_mix_strawberry",
+   "since": "gen0035",
+   "what": "SW クアドラントをイチゴ主体で埋める（メロンの第 2 波は NW 跡地だけ）",
+   "constants": {
+    "strawberry_tiles": 31,
+    "melon_tiles": 8,
+    "wheat_tiles": 20
+   },
+   "origin": "derived",
+   "ablation": "records/eval_gen0034_s24.json（土地と労働は同じで、作付けだけ旧型）",
+   "why": "エンジンの過剰側の価格式から、MELON は sq 形 158 個・MILK は linear 76 個で floor に落ちるが、STRAWBERRY は町の消費が供給に追いついていて在庫が I0 を割る（実測）。枚数はタイルの物理的な空きで決まり、当てにいった値ではない"
+  }
+ ],
+ "mechanisms_doc": "この配列は親からの**差分だけ**。全機構の台帳は agents/gen0026/meta.json。",
+ "review": null,
+ "candidate_sha256": "501d0656e5baa96d3ecd73f4fe1f61ea2d242aed3e3e39efc71f94e79633b17e"
+}

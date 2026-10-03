@@ -1,0 +1,41 @@
+{
+ "gen": "gen0042",
+ "parent": "gen0036",
+ "exp": "EXP0042",
+ "date": "2026-09-06",
+ "track": "Track B — 労働の質の open major 掃除（FIX0004 幽霊予約 + FIX0005 相互停止）。FIX0003/FIX0011 は gen0041 から移植",
+ "hypothesis": "修正台帳の open major 2 件は、どちらも投入を増やさず unit-hour の取りこぼしを回収する（原理 1「労働は量ではなく質」と整合）。(FIX0004) 植付タイルへ移動中の hand が planned_seed を予約し、planned_seed >= seeds で種切れと誤判定して現地に立って今すぐ植える hand を弾く（FIX0001 の種版・gen0022 から継承の幽霊予約）。(FIX0005) 所有者保護 _owner_can_come は farmer を弾くのに FEED/CARE の最寄り判定 dmin には farmer が残るため、farmer が近いだけで所有者の claim を潰し、farmer 自身も保護で降りて両者が譲り合い両方 PASS になる（unit-hour の全損）。gen0036（掃除で王者比 +$2,039）と同じ系統。",
+ "source": "control/fixes.json / knowledge/FIXES.md の open major（FIX0004=gen0024#3・FIX0005=gen0026#0）。state/STATUS.md『今夜のトラック状況』Track B。",
+ "changes": [
+  "FIX0004: 種数の予約（planned_seed の加算）を『今ターン実際に植える hand（(ux, uy) == (x, y)）』に限定。タイルの claimed は歩行中も維持（同じ苗床を二重取りしない）。種購入は plant_slots で数えるので予約を絞っても過剰購入にはならない。",
+  "FIX0005: FEED/CARE の dmin 候補集合から farmer を『所有者が今日まだ来られる間（_owner_can_come が True）』は外した。rescue 時・所有者不在時は _owner_can_come が False を返すので farmer は従来どおり候補に残る。保護の対象集合と最寄り判定の対象集合を一致させた。",
+  "FIX0003（gen0041 から移植・major）: 最終日だけ手持ち在庫 carried_item を各 SELL 数量に上乗せ（DROP は step2 / SELL は step3 で同一ターン内に shed へ載る）。Track A のイチゴ価格床ロジック（LIVING_EXITS / glut_headroom）は移植しない。",
+  "FIX0011（gen0041 から移植・minor）: 換金の手番が無い最終行動ターン（day>=FINAL_DAY and hour>=LAST_ACTION_HOUR）の COLLECT_FERTILIZER を抑制。"
+ ],
+ "excluded": "FIX0006（窓の中 WATER が HARVEST より前）は入れない。gen0032 の訪問完了で in-place 収穫は既に成立し gen0036 の micro（inplace_share 0.410 / tile_revisit_share 0.012）で症状はほぼ解消。残る visit_ok=False の帯を持ち上げると植付締切と競合し、窓の bonus_water は EXP0024 で A/B 済みの敏感な設計。FIX0004/0005 と混ぜると帰属が濁るので独立世代で careful に測る（要再検討）。詳細は EXP0042。",
+ "smoke": "vs rayk_c95 s42/s7/s100 で両者 DONE（エラー 0）。check_fixes: applied 6/6 検出（FIX0001-0005・0011）・回帰 0・open 7。micro_audit s42（括弧内 親 gen0036 s42）: inplace_share 0.4116(0.4097) ／ tile_revisit_share 0.0128(0.0121) ／ tile_util 0.7019(0.6975) ／ moves3plus 0.1291(0.1351) ／ mean_hop 0.959(0.962) ／ 収量 MELON 5.812(5.75)・STRAWBERRY 1.685(1.626)・WHEAT 3.88(3.864)。**unfed/uncared/noop=0**。どの指標も親から回帰なし（同等〜わずかに改善）。--assert の NG（inplace≥0.44・tile_util≥0.83・last_water≤14・各収量）は強帯実測の到達目標（FIX0013）で王者 gen0036 自身も未達＝親から継承。profile mean 0.0002s / max 0.0183s（1 秒 OK）。static_check OK。",
+ "status": "GATE_PENDING_EVAL",
+ "notes": "50 シード eval を eval_queue に投入済み（state/eval_queue/20260906_073818_gen0042.json → records/eval_gen0042.json、baseline records/eval_gen0036.json）。未レビュー・未昇格。昇格前に Codex レビューが要る。",
+ "mechanisms": [
+  {
+   "name": "plant_reservation_on_arrival",
+   "since": "gen0042",
+   "what": "種数の予約は、今ターン実際に植える hand だけが行う（移動中の hand は予約しない）",
+   "constants": {},
+   "origin": "derived",
+   "ablation": "records/eval_gen0036.json（この機構を外した版＝親）",
+   "why": "移動中の予約は次ターンに持ち越されず幽霊予約になり、planned_seed >= seeds で現地の hand が植えられない。FIX0001（在庫の幽霊予約）の種版"
+  },
+  {
+   "name": "farmer_excluded_from_feedcare_dmin",
+   "since": "gen0042",
+   "what": "FEED/CARE の最寄り判定から farmer を『所有者が来られる間』は外す（保護集合と最寄り判定集合を一致）",
+   "constants": {},
+   "origin": "derived",
+   "ablation": "records/eval_gen0036.json",
+   "why": "farmer は _owner_can_come で global fallback から弾かれ実際には claim できないのに、dmin に残ると所有者の claim を距離で潰し、両者が譲り合って両方 PASS になる"
+  }
+ ],
+ "mechanisms_doc": "この配列は親 gen0036 からの差分だけ。全機構の台帳は agents/gen0026/meta.json。FIX0003/FIX0011 は gen0041 から移植した終盤会計修正で、gen0041 の meta.json に機構記述がある。",
+ "candidate_sha256": "8886c70dd48cdbb6b6baeaf3852d048459bf719b8076e0bcb2ca750672e8708c"
+}

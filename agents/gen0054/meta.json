@@ -1,0 +1,43 @@
+{
+  "gen": "gen0054",
+  "parent": "gen0050",
+  "exp": "EXP0054",
+  "date": "2026-09-09",
+  "hypothesis": "上位 B 型の開幕を骨格ごと載せ替える（Track B B1）。王者 gen0048 は d0 にメロン種 5・牛 0・日末資金 $233 で、d10 の一括 IPO が 30 個 ~$6k にとどまり上位（72 個 $14k）に −$10k 負ける（gap §2/§4-3）。d0 に NW メロン 12 枚を一括植え（第2波と SW 4 枚を廃止＝供給 90→72 だが位相集中で単価 $155→$200 帯）＋牛を位相前倒し（d0:2）＋羊 4→2＋d0 だけ RESERVE=0 例外にすれば、d10 に ~72 units を一括 IPO し複利の起点にできる。増産ではなく位相集中なので原理 3（供給の贈り物）に抵触しない（設計メモ §5 の判定 = 条件付き YES）。",
+  "source": "state/plans/2026-09-09_track-b-d0-melon-opening.md（Strategist 設計・条件付き YES・最小型 B1）。gap §2（d0 メロン種 5 vs 12・牛 0 vs 2・日末 $233 vs $27）／§3（メロン 90 個/$155 vs 72 個/$200）／§4-3（資金 d10 $5,026 vs $15,025）。engine 実測（メロン first_yield 10・max_yield 6・above sq amp 0.01 → 72 個目 ~$198）。IDEA_POLICY『出してよい 1: 日次骨格の変更』。EXP0053 学び #2 を反映し、設計 §2-5 の『第2波跡地を早期小麦へ再配分（wheat from_day 19→11）』は margin 負レバー（EXP0053 で実証）なので B1 から外し、メロン跡地 12 枚を carrot 終盤ブロック（from_day 19・1 回転）で閉じる。",
+  "changes": [
+    "Change 1: CROP_PLANS[MELON] を単一波 NW 12 枚 from_day 0 に（第2波 (10,12) と SW 4 枚 (0,5)-(3,5) を削除）。windows [(0,2)] のみ。追加 4 枚 = (3,1)(4,1)(0,2)(1,2)。",
+    "Change 2: 小麦基幹を 7→6 枚に再配置（メロンに (3,1)(4,1)(0,2)(1,2) を譲り、残地 (0,3)(4,3)(0,4) を編入）。終盤ブロック（メロン跡地）12 枚を carrot from_day 19 の 1 回転で閉じる（無計画にすると fallback 小麦が d10-25 連続回転＝EXP0053 の margin 負レバーになる）。イチゴ早出し 2 枚 (0,3)(0,4) を廃止し小麦基幹へ転用。",
+    "Change 3: cow_target を位相前倒し {d0:2, d2:3, d3-5:4, d6:6, d7+:8}（ピーク 8 不変＝増産でなく前倒し）。sheep_target 非発火分岐を `2 if day<6 else 4`（d0 メロン 12 の資金確保。d6 の羊毛初売りで復帰。発火 8 は不変）。",
+    "Change 4: d0 だけ RESERVE を 0 にする reserve_eff を導入し、動物 afford（L1400）と種 afford（L1447）の 2 箇所だけ置換。土地・feed 見積・reconcile の RESERVE 定数は不変（d0 は土地を買わない）。開幕 denial 小麦（旧 slot0 の 5 個）を廃止。",
+    "Change 5（Supervisor が cycle5 で WIP を仕上げた分）: (a) reserve_eff を 2 afford 箇所へ実配線（WIP は定義のみで未配線＝メロンが 9 で頭打ちだった）。(b) d0 の飼料先回り: 開幕 denial 廃止で d0 朝の shed 小麦が 0 になり d1 に給餌原資を失う（実測 unfed 2/d1）ため、planned_total の elif day==0 分岐で当ターン購入予定頭数（羊2+牛2）を先取りして飼料小麦を d0 に仕込む（gen0045 の expand 先回り lookahead を d0 の自ターン購入へ拡張）。"
+  ],
+  "status": "IN_PROGRESS",
+  "blocker": "★critical-three NG（unfed_days>0）。d1 に 2 頭が未給餌（全 seed 決定論的）。原因は優先度順ではない（FEED は layer1=0.9 で既に crop WATER 2.90 より上）。実測: shed 小麦は d0 に急速に枯れ（h1 で 8 → h2 で 2 → h15 で 0）、d0 の 3 頭給餌＋植付で消費され、メロン 12 が d0 の現金を使い切るため d0 に飼料を積み直せず、d1 朝の shed が 2 個 → 2 頭給餌して枯渇 → 2 頭 unfed。設計メモ R3（労働・飼料の余裕薄）と R5（現金クッション喪失）が実測で成立。CLAUDE.md『unfed_days は 0 が必須・NG のまま評価に回さない』により eval キューへ投入しない。次の一手 = Strategist による d0-d1 飼料フィージビリティの再設計（候補: メロン 12→10-11 に緩めて d0 に d1 用小麦バッファを積む／d0 の小麦消費ドレインの解明＝植付が feed 小麦を食っている疑い／給餌ロジスティクスの専用化）。",
+  "smoke": "本節は動作確認専用（≤8 seed）。vs starter seed 7/14/42 とも エラー 0・両者 DONE。開幕は設計どおり発火（d0 h1 に BUY_PRODUCT WHEAT 8 / SHEEP 2 / COW 2 / HIRE×3 / BUY_SEED MELON 12 / WHEAT 1 の順で発注、engine per-unit 約定でメロン 12 が成立・d0 EOD $26）。ただし critical-three で unfed_days>0（d1=2 頭）。profile 最悪 <1s。詳細は EXP0054 / blocker。",
+  "mechanisms": [
+    {
+      "name": "d0_melon_ipo_opening",
+      "since": "gen0054",
+      "what": "d0 に NW メロン 12 枚を一括植え（単一波）＋牛位相前倒し（d0:2）＋羊 4→2＋d0 RESERVE=0 例外＋開幕 denial 廃止。d10 の一括 IPO（~72 units @ ~$198）で複利の起点を作る。位相集中であって増産ではない（総供給 90→72）。",
+      "constants": {
+        "melon_tiles": 12,
+        "melon_windows": "[(0,2)]",
+        "cow_ramp": "{d0:2,d2:3,d3-5:4,d6:6,d7+:8}",
+        "sheep_base": "2 if day<6 else 4",
+        "reserve_d0": 0
+      },
+      "origin": "observed",
+      "ablation": "records/eval_gen0050.json（親 gen0050＝メロン第1波 8 + 第2波 4、cow_target d0=0、羊 4、denial 小麦 5、RESERVE=400 常時）",
+      "why": "上位 B 型の実測（d10 一括 60-72 個 @$200・$13-14k）を骨格ごと取り込む。engine 実測でメロン 72 個目 ~$198（above sq amp 0.01）＝床に落ちないので位相集中が単価を取れる。ただし d0-d1 の飼料フィージビリティが未解決（blocker 参照）。"
+    }
+  ],
+  "mechanisms_doc": "gen0050 から継承した機構（funded_wool_expansion・feed_buffer_lookahead_on_expansion・expansion_hands_bump・market_budget_reconcile・beta_harvest_unlock_gate・carrot_layer2_reclass・fast_carrot_rotation・carrot_final_day_settlement）は変更なし。gen0054 の新規は d0_melon_ipo_opening（開幕骨格の載せ替え）。継承機構の完全な台帳は gen0046/gen0048/gen0050 の meta.json を参照。",
+  "candidate_sha256": "",
+  "notes": "親 gen0050（王者系譜・fix 台帳 applied 14/14）のコピー＋Track B B1 開幕載せ替え。check_fixes applied 14/14・回帰 0・open 6。IN_PROGRESS（unfed_days>0 の blocker で eval 未投入）。Codex レビューは blocker 解消・eval で gate.pass 見込みが立ってから昇格前に実施（review は placeholder・捏造しない）。",
+  "review": {
+    "status": "pending",
+    "note": "Codex レビュー未実施。blocker（d1 unfed）解消 → 50seed eval → gate.pass 見込みが立ってから昇格前に knowledge/REVIEW_CHECKLIST.md の 7 観点で実施。placeholder（捏造しない）。",
+    "findings": []
+  }
+}

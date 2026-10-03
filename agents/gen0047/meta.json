@@ -1,0 +1,33 @@
+{
+ "gen": "gen0047",
+ "parent": "gen0046",
+ "exp": "EXP0047",
+ "date": "2026-09-07",
+ "hypothesis": "終盤 fast-carrot ローテ。4 産を終えて engine が WEED 化したイチゴタイルだけを d24-27 に DIG→CARROT 化し、d27-29 に carrot 2-3 個/枚 × base $35 を純増させる（設計書 state/plans/2026-09-07_gen0047-fast-carrot.md）。触るのは kind=WEED/None のタイルのみ＝イチゴ供給非減、worst case は carrot todo starve で gen0046 と同一という下振れ 0 のオプション構造を意図。",
+ "source": "knowledge/scout/2026-09-07_next-structural-lever.md 提案1。裏付け replays/top/episode-106191684・episode-106190768（LB #1 我都先道歉の両席 d24 carrot 開始）。IDEA_POLICY §1（日次骨格）+ §5（上位公開実装の差別化）。",
+ "changes": [
+  "§2-1: CROP_PLANS に \"CARROT\" 追加。tiles = STRAWBERRY 計画から早出し2枚 (0,3)(0,4) を除いた 25 枚（NE (5-9,0)(5-8,1)(9,1) の 10 + SW (0-4,6-8) の 15）、from_day 一律 24、windows [(24,27)]、plant_pri 2.82、water_pri 3.02、seed_cost 20、buy_cap 12、last_plant_day 27。実座標は親の CROP_PLANS[\"STRAWBERRY\"] から早出し2枚を除いて導出。",
+  "§2-2: 植付スケジューラ per-crop 植付期限。plant_slots に \"CARROT\":0 追加、lpd = plan.get(\"last_plant_day\", LAST_PLANT_DAY) で一般化（MELON/STRAWBERRY/WHEAT はキー無し→既定 25 のまま挙動不変）。",
+  "§2-3: 種購入ループに \"CARROT\" 追加（優先最後）＋ carrot 窓が開いている間だけ carrot 計画タイル上の WEED を plant_slots[\"CARROT\"] に数える（FIX0008 を carrot スコープに限定して部分適用。FIX0008 は open のまま・他作物 fallback には触れない）。",
+  "§2-4: 収穫の carrot 分岐 ripe = age>=3 or (day>=FINAL_DAY and age>=2)、hpri/wpri=2.2/3.02。BONUS_WINDOW[\"CARROT\"]=(2,3)・MAX_YIELD[\"CARROT\"]=3。",
+  "§2-5/§2-6: 売却は変更 0 行（CARROT は ALWAYS_SELL・BASE_VALUE=35 に既在）。"
+ ],
+ "status": "BLOCKED_NONFIRING",
+ "finding": "本世代のレバー（fast-carrot ローテ）は本番挙動で発火しない。seed 7/14/42 とも carrot 植付 0 件・carrot 種 9 個購入（~$180 の死に金）で、最終資金は gen0046 比 -$180〜-$356 の小さな厳密悪化（全 3 seed とも負・検出限界内だが方向は一致）。原因は 2 つの複合で、いずれも設計前提の不成立（設計書 §5 反証条件どおりリプレイで WEED 化日を実測して確認）: (1) decay タイミング不一致 — 我々の骨格ではイチゴ decay が d28-29 に集中し（seed7 d29 h0: WEED 18/None 8）、carrot の last_plant_day=27 までに空くのは ~1-7 枚のみ。設計の『d24-27 に 10-17 枚が空く』は成立しない。d24 は 25 枚とも生存イチゴ（窓が空く前に対象が無い）。(2) 労働優先度の starvation — PLANT(層4) はイチゴ HARVEST(層2) に常に負け、その HARVEST は d26-27 にピークを迎える。None の carrot タイルに hand が立っていても隣のイチゴ収穫を優先して EAST に動く（実測）。DIG(層3) は h21+ に回り LAST_PLANT_HOUR=20 を過ぎるため PLANT todo が翌ターンにしか出ず、翌日も同じ starvation。→ 評価に回さず Strategist に差し戻し。骨格側でイチゴ植付を早めて decay を d24-26 に前倒しする案（scout 落とし穴1 の接続先）か、carrot を bolt-on ではなくイチゴローテ本体の再設計にするのが筋。LB #1 が発火するのは彼らのイチゴ decay がより早い/株数構成が異なるため。",
+ "smoke": "vs starter seed 7/14/42: エラー 0・両者 DONE・final_money [150711/161032/129621]（gen0046: [150974/161388/129801]、全 3 seed -$180〜-$356）。micro_audit --assert（seed 7/14/42）: noop_total=0 / unfed_days=0 / uncared_days=0（3 seed とも critical-three OK）。他 micro NG（inplace_share/last_water_hour/melon_yield/strawberry_yield/tile_revisit/tile_util/wheat_yield）は gen0045/0046 と同じ FIX0013 強帯到達目標（--limit 対象）で本世代の回帰ではない。profile mean/max=0.00023/0.00048s（1 秒 OK）。static_check OK。check_fixes applied 12/12・回帰 0・open 6（FIX0008 は carrot 部分適用のため意図的に open のまま）。",
+ "leak_check": "非発火同一性。gen0047 の obs 軌跡（vs starter seed 7/14/42）を gen0046.agent と gen0047.agent の両方に流し、market/farmer/hands 出力を全ターン diff。総 diff 63 件、内訳 {d25:4, d26:22, d27:37}、d0-24 は diff=0。carrot 窓(24,27)の発火域だけに差が閉じ、それ以前は親とバイト同一を確認（設計書 §4 の d0-23 diff=0 は成立、d24 も生存イチゴのみで diff=0）。差の中身は carrot 種購入・decay タイルの DIG・(発火しない)PLANT todo で、carrot 収穫は 0 なのでプラスの value driver は無い。",
+ "mechanisms": [
+  {
+   "name": "fast_carrot_rotation",
+   "since": "gen0047",
+   "what": "4 産を終えて engine が WEED 化したイチゴタイル（STRAWBERRY 計画から早出し2枚を除いた 25 枚）だけを d24-27 に DIG→CARROT 化する。CROP_PLANS[\"CARROT\"]（窓 (24,27)・from_day 24・plant_pri 2.82・last_plant_day 27）＋ per-crop 植付期限の一般化＋種購入 carrot 追加＋収穫 carrot 分岐＋BONUS_WINDOW/MAX_YIELD。触るのは kind=WEED/None のタイルのみ（生存イチゴは植付スケジューラが素通り＝engine が WEED 化の唯一の判定者）。**本世代では発火せず（finding 参照）。非採用**",
+   "constants": {"window": "(24,27)", "last_plant_day": 27, "from_day": 24, "plant_pri": 2.82, "water_pri": 3.02, "seed_cost": 20, "buy_cap": 12, "tiles_count": 25, "BONUS_WINDOW": "(2,3)", "MAX_YIELD": 3},
+   "origin": "observed",
+   "ablation": "records/eval_gen0046.json（この機構を外した版＝親。carrot 無し）",
+   "why": "LB #1 両席の実測（ep106191684/ep106190768: d24 開始・終盤自陣 WED≈0）を取り込む意図だったが、我々の骨格ではイチゴ decay が d28-29 に集中し carrot の plantable 窓(〜d27)に空くタイルが ~1-7 枚しか無く、かつ PLANT(層4)がイチゴ HARVEST(層2)の d26-27 ピークに starve されて発火しない。observed origin の前提（decay タイミング・株数構成）が我々の骨格と不一致"
+  }
+ ],
+ "mechanisms_doc": "gen0046 から継承した 5 機構（funded_wool_expansion・feed_buffer_lookahead_on_expansion・expansion_hands_bump・market_budget_reconcile・beta_harvest_unlock_gate）は変更なしのため本 meta には fast_carrot_rotation のみ新規記載。継承機構の台帳は gen0046/meta.json を参照（本世代は親のコピー＋carrot 追加のみ・継承機構は 1 行も触っていない）。FIX0008 は carrot 部分適用（DIG 予定 WEED の種先読みを carrot スコープ限定）のため台帳は open のまま。",
+ "candidate_sha256": "fd5db61e859e45deba79b72b5d7bbdc54552558434f287dac9c66257316ed91a",
+ "notes": "eval・提出・Codex レビューは未実施。BLOCKED_NONFIRING のため eval キューに積んでいない（-$180 の非発火回帰を 24-50 seed で確認するのは無駄）。Strategist への差し戻し理由と実測は finding 欄。candidate_sha256 は現 main.py の値だが昇格候補ではない。"
+}

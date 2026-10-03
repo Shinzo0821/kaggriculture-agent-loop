@@ -1,0 +1,14 @@
+{
+  "generation": "gen0016",
+  "parent": "gen0013",
+  "track": "A",
+  "date": "2026-09-04",
+  "hypothesis": "計測(gen0013 vs starter 5シード)で中核は毎試合 262-323 個の飼料小麦を市場買いし、売り抜けを差し引いても純~$7.2-7.6k/試合を払っている(買いは d0 発生=8タイルでは最大10頭の給餌に構造的に不足)。市場買い ~$43/個 vs 種 $1.67/個 で自給は 25 倍安い。cycle3 LB分析: 勝者 Reda は飼料自給(種~$537)。→ 中核資金化後(d6+ & money>=5000)に NE 区画を1枚だけ購入($1000)し追加飼料小麦畑を稼働。植付は種4個/ターン上限+PLANT最低優先で自然に staggered(gen0015 の労働律速の教訓)。",
+  "changes": [
+    "NE 区画を中核資金化後(day>=6 & money>=5000)に1枚だけ購入($1000)。NE not in quads を条件にし SW/SE への連鎖購入を防止",
+    "NE_WHEAT_TILES=[(5,0),(6,0),(7,0),(8,0),(9,0),(6,1)] を NE 購入後のみ WHEAT_TILES に動的追加。飼料小麦を自給し市場買いを削る",
+    "メロン資本スプリント・hands7・売却ロジックは gen0013 のまま不変(単一レバー)"
+  ],
+  "eval": "records/eval_gen0016.json",
+  "experiment": "knowledge/experiments/EXP0016_feed-self-sufficiency.md"
+}

@@ -1,0 +1,12 @@
+{
+  "generation": "gen0014",
+  "parent": "gen0013",
+  "track": "A",
+  "date": "2026-09-04",
+  "hypothesis": "王者 gen0013 はプレミアム品(MILK/WOOL)を price>=floor で全量ダンプしていた＝高値(=市場在庫が薄い局面)で自ら大量供給し価格を暴落させる自己矛盾。LB勝者 Lorenzo($160k, 2026-09-04分析)はイチゴを町吸収量以下のペースで売り価格を128→267に上げ続けた。MILK base$160/WOOL base$200 も同じ吸収構造なので、全量パスを撤去し常時 town_absorb/日 のトリクルに統一すれば、値上がり局面の売却単価が上がり日次収入が伸びる",
+  "changes": [
+    "SELL_FLOORS 分岐の全量ダンプ条件から `prices>=floor` を除去（単一変数）。全量ダンプは DUMP_DAY と shed_pressure>=SHED_DUMP の破滅回避時のみに限定。budget=max(trickle,I0+SLACK-minv) が市場在庫の薄い局面で売却枠を自動拡大するため売り逃しは起きない"
+  ],
+  "eval": "records/eval_gen0014.json",
+  "experiment": "knowledge/experiments/EXP0014_premium-always-trickle.md"
+}

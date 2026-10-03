@@ -1,0 +1,42 @@
+.venv/
+# worktree を切ると .venv / records を親へのシンボリックリンクにすることが多い。
+# 末尾スラッシュ付きの行はディレクトリしか無視しないので、リンク形も明示する
+# （でないと untracked に出続け、`git add -A` でリポジトリ外を指すリンクが入りうる）。
+# 先頭 / でリポジトリ直下だけに限定する（任意階層の同名ファイルまで隠さない。codex P2）。
+/.venv
+/records
+/replays
+/logs
+# ツールが作るリポジトリ内 worktree（git worktree list には出るが追跡しない）
+/.claude/worktrees/
+__pycache__/
+*.pyc
+records/
+replays/
+logs/
+*.tar.gz
+.DS_Store
+state/overnight_logs/
+# 評価ジョブのキュー(実行中の一時状態。結果は records/ と EXP に残る)
+state/eval_queue/
+# 秘匿物(万一リポジトリ内に置かれても絶対にコミットしない)
+.env
+.env.*
+kaggle.json
+access_token
+*.pem
+*.key
+
+# 承認キューの排他ロック(実行時の一時ファイル)
+control/submit_queue.jsonl.lock
+
+# reform_pool.py の作業用コピー(本番プールを原子的に差し替えるまでの一時ファイル)
+control/sparring_pool.reform_work.json
+control/sparring_pool.*.bak.json
+
+# セッション上限のリセット時刻(record_usage.py → overnight.sh の実行時の受け渡し)
+state/session_limit_reset
+
+# スパーリング用に回収した公開エージェントの巨大なルートデータ(5.1MB。
+# regenerate は agents/sparring/dmitriigluzdov_7turn/meta.json の kernel_id_no + cell15 blob から。sha256 も同 meta に記録)
+agents/sparring/dmitriigluzdov_7turn/actions.json

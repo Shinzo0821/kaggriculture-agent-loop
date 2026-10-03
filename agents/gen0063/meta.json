@@ -1,0 +1,94 @@
+{
+ "gen": "gen0063",
+ "parent": "gen0062",
+ "date": "2026-09-20",
+ "exp": "EXP0063",
+ "candidate_sha256_at_write": "1468b41e59a60cf8646ad72a58146f1903565aff44c3c2cca88a7bd08d0d7843",
+ "hypothesis": "トマト市場は 30/30 の試合で両者の約定が厳密に 0 個＝**一方向に空いている**（`knowledge/analysis/2026-09-20_tomato-track2b.md` §2。engine は TOMATO を `BUY_PRODUCT` 不可）。一方こちらの盤では **d19 以降、小麦計画タイルが毎日 8-26 枚空いたまま**で、実際の植付は 2-6 枚/日しかない（c6 実測）。その空きの一部を、同じ 1 枚の PLANT の作物を小麦からトマトへ差し替える形で使う。小麦は共有品目（原理 3: 増産も減産も負ける）＝売っても相手の取り分を増やすだけだが、トマトは相手が売りも買いもしないので、同じ 1 回の PLANT でより多くが自分に残る。IDEA_POLICY §4『日次骨格の変更』。**c5 の仕様草案（フォールバック植付の作物選択を変える）は発火し得ないことが分かったので設計を変えた**（小麦の窓 (0,25) が開いている間、計画タイルはずっと `reserved` でフォールバックは 1 度も触らない）。",
+ "mechanisms": [
+  {
+   "name": "tomato_substitution_on_idle_wheat_tiles",
+   "since": "gen0063",
+   "what": "`CROP_PLANS` に tiles 空の \"TOMATO\"（窓 (19,20)・`last_plant_day` 20）を足し、**小麦計画タイル（`from_day >= 10`）が空いている時に、その 1 枚の PLANT todo を小麦からトマトへ差し替える**。差し替える具体的なタイルは事前パス `tom_pick` が『ユニット（farmer + hands）からのマンハッタン最短距離が小さい順』に選ぶ。枚数のゲートは 3 つ: (a) 市場 headroom `(I0 − 在庫) // TOMATO_UNITS_PER_TILE − 盤上のトマト`、(b) 手元の飼料小麦 ≥ `planned_total`（既存の買い足しと同じ閾値）、(c) 飼料の橋渡し（(c-1) 次の小麦収穫までは手元在庫だけで賄える ＋ (c-2) 手元＋生育中で小麦 1 回転 4 日ぶん）。ongoing 作物としての分岐も足した: `ripe = True`（貯めると max_yield 4 で頭打ち）・増収水やりは『肥料が効いている生産前日』age 7-10 だけ・施肥は age 7-9 に 1 本だけ（`n_double >= 2` の日に限る）・**通常 WATER は出さない**（生存は隔日の枯死防止 pri 1.0 で足りる）。種は JIT で 1 個だけ買う。",
+   "constants": {
+    "TOMATO_BONUS_AGES / TOMATO_FERT_AGES": "engine `_daily_refresh_plants`（翌日 age 8-11 の生産は当日 age 7-10 の水やり＋肥料で +2）から導出",
+    "窓 (19, 20)": "P+8 <= 29 と『d21 植えは 1 産だけ＝種 $50 に見合わない』から上限 20。下限 19 はリプレイ実測（試合終了まで一度も塞がらないタイルが出るのは d19 以降）",
+    "TOMATO_UNITS_PER_TILE = 8": "engine の絶対上限 max_yield 4 × 肥料ありの +2",
+    "premium_absorb の TOMATO 6/日/店": "24 ステップ / `townShopSellInterval` 4（engine 由来。他品目の 12/24 のような tuned 値ではない）",
+    "TOMATO_SEED_BUFFER = 1": "**実測由来**（構造からは導けない）。枠の数で買うと植わらなかった種が死ぬので JIT にした"
+   },
+   "origin": "analysis（`knowledge/analysis/2026-09-20_tomato-track2b.md` §4 ＋ c6 の空きタイル実測）",
+   "ablation": "records/eval_gen0062.json（親＝現王者。同一プール 13 体・50 シード）",
+   "why": "上位メタ gap §4-4（トマト 0 個 vs 72 個・−$5,164）が 5 夜以上未着手で残っていた唯一の品目。上限は土地を増やさない限り上位の 3-6 割。",
+   "measured": "vs starter 3 seed（決定論的な行動会計。資金の判断には使わない）: トマト植付 **3/3/4 枚**（すべて d19-20）・トマト売却 **14/8/18 個**・小麦植付 −8/−6/−9・小麦売却 −23/−9/−16・`BUY_PRODUCT WHEAT` +0/+12/+12・水やり総回数 −10/−1/−17・**`unfed`/`uncared`/`noop` は 3/3 で 0**・`FEED` 回数は親と同一。"
+  },
+  {
+   "name": "fix0039_tomato_trickle_sell",
+   "since": "gen0063",
+   "what": "FIX0039: `ALWAYS_SELL` から TOMATO を外し `SELL_FLOORS`（町の吸収レート／`I0` までの在庫予算に従うトリクル売り）へ移す。併せて `premium_absorb` に `\"TOMATO\": 1 + 6 * t` を追加（`t` = PIZZA_SHOP + FARMERS_MARKET の軒数）。",
+   "constants": {
+    "6": "24 / townShopSellInterval(4) ＝ engine 由来"
+   },
+   "origin": "ledger（FIX0039）＋ Codex gen0063#round1-P1-3",
+   "why": "TOMATO の `T` は 200 で EGG 332・CARROT 450・WHEAT 400 より小さく、無条件即売りは in 在庫が I0 を越えた局面で値崩れを踏む。トマトを 1 枚も植えない盤面では shed の TOMATO が常に 0 なので挙動同一。"
+  }
+ ],
+ "not_included": {
+  "窓 (15, 20) 版": "d15 から差し替える版は 1 枚あたり 4 産（d19-20 植えは 2-3 産）だが、**そこに空いている小麦タイルはローテーションの谷間**で、11 日居座るトマトは現に回っている小麦を押しのける＝ EXP0057（−$1,858）と同じ形。スモークでも小麦売却が −28〜−37 個。**本世代では採らない。**",
+  "トマトの plant_pri を小麦より上げる": "発火枚数（3-4 枚）を増やす最短の手だが、**別の機構**（労働の優先順位の変更）なので同梱すると帰属が割れる。gen0063 の結果が出てから単独で測る。",
+  "FIX0028 / FIX0029 / FIX0031 / FIX0034-0036": "親から継承（資金ゼロ確定・効果 ≤ +$102 確定・自身のレビューの deferred）。"
+ },
+ "review": {
+  "date": "2026-09-20",
+  "reviewer": "codex gpt-5.6-sol / reasoning high（3 ラウンド）",
+  "candidate_sha256": "1468b41e59a60cf8646ad72a58146f1903565aff44c3c2cca88a7bd08d0d7843",
+  "findings": [
+   {
+    "severity": "minor",
+    "what": "round2-P1-1 / round3-P1: 飼料ゲート (c-2) が生育中の小麦を収穫時期と無関係に 4 個ずつ数える。age3 が 1 枚・age0 が 8 枚のような盤面で『4 日ぶんある』と通る",
+    "resolution": "deferred（FIX0040 に登録）。手元在庫のみに倒す安全側の案はゲートがほぼ常に閉じて機構が発火しなくなる恐れがある（窓を狭めた版が 3/3 シードで発火 0 になった前例）。飼料の最終的な担保は既存の買い足しと評価側の `unfed_days = 0` で、実測の unfed は 3/3 で 0"
+   },
+   {
+    "severity": "major",
+    "what": "round1-P1-1: 差し替えがトマト種の有無を見ず、種 0 個のターンに**小麦の todo と小麦の種需要だけが消えて**トマトも植わらない＝親より悪い盤面になる（親が EAST を出す観測で PASS を返す実測付き）",
+    "resolution": "fixed。事前パス `tom_pick` で『今持っている種の枚数まで』『ユニットに近い順』に選び、選ばれなかった枠は小麦の todo のまま残す。**最小変更案（並び順で先頭 1 枚）をそのまま入れたら 3/3 シードで発火 0 になった**ので、近い順に変えた"
+   },
+   {
+    "severity": "major",
+    "what": "round1-P1-2: 飼料の見込みが『空いている小麦タイルが全部フル回転する』前提で供給を数えていた。**空いている理由が労働不足**なので植わる保証が無く、保証になっていない",
+    "resolution": "fixed。空きタイルを供給から外し、手元＋生育中だけで 4 日（小麦 1 回転）を賄える日に限った（残る過大評価は上の FIX0040）"
+   },
+   {
+    "severity": "major",
+    "what": "round1-P1-3: `premium_absorb` に TOMATO が無く `town_absorb.get(item, 1)` で 1 個/日に固定される。engine では PIZZA_SHOP / FARMERS_MARKET が 6 個/日/店を消費する",
+    "resolution": "fixed。`TOMATO_SHOPS` と `\"TOMATO\": 1 + 6 * t` を追加（6 = 24 / townShopSellInterval 4）"
+   },
+   {
+    "severity": "major",
+    "what": "round2-P1-2: トマトに通常 WATER が毎日出る（初産前は `yu == 0` なので最後の分岐に落ちる）。engine 上必要なのは隔日の枯死防止と生産前日の増収水やりだけで、実測 d19 植え 10 回・d20 植え 9 回（必要 6-7 回）",
+    "resolution": "fixed。ただし**修正の初版で分岐を枯死防止より前に置き、トマトに水が 1 滴も行かず 2 日で全滅した**（3/3 シードで `SELL TOMATO` 0 個）。枯死防止と bonus_water の後ろに移して解決（round3 で位置を確認済み）"
+   },
+   {
+    "severity": "minor",
+    "what": "round2-P2-1: `plant_slots[\"TOMATO\"]` が `tom_budget` を超える候補数を入れており、正しさが `TOMATO_SEED_BUFFER == 1` に暗黙依存する",
+    "resolution": "fixed（`min(len(_cand), tom_budget)`）"
+   },
+   {
+    "severity": "minor",
+    "what": "round2-P2-3 / round1-P2-1: 旧窓 (15,20)・旧飼料式・`TOMATO_UNITS_PER_TILE` の説明がコメントに残っていた",
+    "resolution": "fixed（コメントのみ。挙動の変更なし）"
+   },
+   {
+    "severity": "minor",
+    "what": "round1-P2-2: `TOMATO_SEED_BUFFER = 1` は構造由来ではなく実測チューニング（IDEA_POLICY の『単一パラメータ』側に近い）",
+    "resolution": "deferred（設計として受け入れ）。JIT 在庫の役割で、sweep はしていない（2 と 1 の 2 点だけを見て、植付枚数が同じで死蔵だけが減る方を採った）。meta の `constants` に『実測由来』と明記した"
+   },
+   {
+    "severity": "minor",
+    "what": "round2-P2-2: 『トマトが盤上 0 枚なら親と同一』は文字どおりには成立しない（種を 1 個買った時点で `tom_pick` の 1 枚が小麦枠から外れる）",
+    "resolution": "fixed（設計前提の言い換え）。正しくは『ゲートが閉じている（`tom_budget == 0`）か候補が無ければ親と同一』"
+   }
+  ],
+  "blocking_resolved": true
+ }
+}

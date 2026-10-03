@@ -1,0 +1,52 @@
+{
+ "gen": "gen0041",
+ "parent": "gen0036",
+ "exp": "EXP0041",
+ "date": "2026-09-06",
+ "track": "Track A — 終盤出口の価格最適化 ＋ open な清算修正の掃除（FIX0003 / FIX0011）",
+ "hypothesis": "終盤出口の価格最適化: 生きた出口(イチゴ)を価格モデルから解いた floor でペース配分し、FINAL_DAY まで叩き売らない ＋ FIX0003(最終日 DROP を SELL に反映) ＋ FIX0011(最終ターンの無駄な肥料回収抑制)。実測でイチゴは d25-29 に 81 個が $7-54 で投げ売りされている（base 近くで売れれば ~+$10,650）。根因は終盤オーバーライド `if day >= DUMP_DAY or shed_pressure >= SHED_DUMP: qty = n` が生きた出口を base 未満で全量ダンプすること。牛乳・肥料のダンプは意図的な denial なので触らない。",
+ "source": "state/HANDOFF.md の Track A（終盤出口の価格最適化）／ knowledge/FIXES.md の FIX0003・FIX0011（4 世代連続で open だった清算漏れ）",
+ "changes": [
+  "CHANGE1(Track A core): SELL_FLOORS ループの終盤オーバーライド分岐を STRAWBERRY だけ価格床ペース配分に置換。生きた出口(LIVING_EXITS)は day < FINAL_DAY の間、価格モデル price = base - GLUT_AMP*(inv - I0) から『その floor を割らない売却数』(glut_headroom)を解き、日が進むほど floor を base から $1 へ下げて(ENDGAME_RAMP_DAYS=5 で線形) FINAL_DAY までに吐き切る。均等ドローダウンの clearance(=ceil(n/(days_left+1)))と max を取り確実に完売させる。牛乳・肥料の denial ダンプと最終日全量は従来どおり。メロン(シーズン~110<床158)・羊毛(希少)は対象外。",
+  "CHANGE2(FIX0003): 最終日(day >= FINAL_DAY)は手持ち在庫(carried_item)を各 SELL 数量 n に上乗せする。DROP は step2 / SELL は step3 で同一ターン内に shed へ載り、過剰売却は在庫尽きでエンジンが安全に停止する(kaggriculture.py:652)ので純粋な会計修正。WHEAT / ALWAYS_SELL / SELL_FLOORS の 3 ループすべてに適用。最終日以外は carried_item が空 dict なので挙動不変。",
+  "CHANGE3(FIX0011): 最終行動ターン(d29 h22, step 718)の COLLECT_FERTILIZER を抑制。`day >= FINAL_DAY and hour >= LAST_ACTION_HOUR(=22)` のとき todo を積まない。売る手番の無い肥料 1 個の死蔵を防ぐ。HARVEST は FIX0003 の同一ターン DROP+SELL で換金できるため触らない。"
+ ],
+ "smoke": "vs starter s42/s7/s101 で両者 DONE・クラッシュなし。audit_replay: unfed 0 日 / uncared 0 日（3 シード）。micro_audit --assert: unfed_days=0 / uncared_days=0 / noop_total=0（3 シードとも合格ライン）。他の NG（inplace_share 0.415-0.420 / last_water_hour 23 / melon_yield 5.87-5.93 / strawberry_yield 1.72-1.77 / tile_util 0.690-0.696 / wheat_yield 3.87-3.92）は王者 gen0036 と同一値の強帯乖離（FIX0013、規則違反ではない。seed42 で gen0036 とビット一致を確認）で、本変更は d28-29 の売却のみを触るため労働・収量指標に回帰なし。profile: mean 0.0002s / p99 0.0003s / max 0.018s（1 秒制約 OK）。check_fixes: applied 4/4 検出（FIX0003・FIX0011 が open→applied へ移動）/ open 9 件。",
+ "status": "in_progress",
+ "notes": "評価未実施（親 = 王者 gen0036 との対応付き 24→50 シードは Supervisor が eval_queue で回す）。glut_headroom は O(1) なので速度影響なし。CHANGE1 は tuned 定数 ENDGAME_RAMP_DAYS=5 を含む（floor の下げ方）。GLUT_AMP は README の価格表から導出(derived)。review オブジェクトは Codex レビュー後に追記する。",
+ "mechanisms": [
+  {
+   "name": "endgame_living_exit_pacing",
+   "since": "gen0041",
+   "what": "生きた出口(イチゴ)は終盤も価格床を割らない数だけ売り、FINAL_DAY までに線形に floor を base→$1 へ下げて吐き切る（$1 への一括叩き売りを止める）",
+   "constants": {
+    "LIVING_EXITS": ["STRAWBERRY"],
+    "ENDGAME_RAMP_DAYS": 5,
+    "GLUT_AMP.STRAWBERRY": "1.6*120/100 = 1.92",
+    "clearance": "ceil(n/(days_left+1))"
+   },
+   "origin": "tuned",
+   "ablation": "records/eval_gen0036_*.json（この機構を外した版＝親。まだ取得していない）",
+   "why": "GLUT_AMP は README の過剰側線形価格モデルから導出(derived)。LIVING_EXITS の限定（イチゴのみ、牛乳/肥料/メロン/羊毛を除く）も供給>需要かつ denial でない出口という構造から導ける。ENDGAME_RAMP_DAYS=5 は floor の下げ速度を当てにいった tuned 値で、次の削り世代の候補"
+  },
+  {
+   "name": "final_day_carried_sell",
+   "since": "gen0041",
+   "what": "最終日は手持ち在庫を DROP した分を同一ターンの SELL 数量に上乗せして換金する（FIX0003）",
+   "constants": {},
+   "origin": "derived",
+   "ablation": "records/eval_gen0036_*.json（親は最終日 DROP 分を売り逃す）",
+   "why": "DROP(step2)→SELL(step3) の処理順とエンジンの over-sell 安全停止(kaggriculture.py:652)から、最終日の carried を n に足すだけで安全に取り切れることが導ける"
+  },
+  {
+   "name": "suppress_final_turn_produce",
+   "since": "gen0041",
+   "what": "最終行動ターン(hour >= LAST_ACTION_HOUR)は換金の手番が無い産出行動(COLLECT_FERTILIZER)を抑制する（FIX0011）",
+   "constants": {"LAST_ACTION_HOUR": 22},
+   "origin": "derived",
+   "ablation": "records/eval_gen0036_*.json（親は最終ターンに肥料 1 個を死蔵）",
+   "why": "d29 h22 が最終行動ターン(step 718)で、そこで産出しても売る手番が無いことはゲームの日数・時刻構造から導ける"
+  }
+ ],
+ "mechanisms_doc": "この配列は親 gen0036 からの**差分だけ**。gen0036 の 2 機構（zone_quadrant_closed / shed_reservation_on_arrival）と全機構の台帳は agents/gen0026/meta.json および agents/gen0036/meta.json を参照。"
+}

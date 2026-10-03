@@ -1,0 +1,64 @@
+{
+ "gen": "gen0044",
+ "parent": "gen0042",
+ "exp": "EXP0044",
+ "date": "2026-09-07",
+ "track": "Track A — H2『売り時 burst』。WOOL/MELON の SELL 量を限界価格 β=0.55 で解く（親 gen0042 に FIX0006 移植 + FIX0009 同梱）",
+ "hypothesis": "上位 #1（我都先道歉）は WOOL/MELON の限界価格を base の 0.5-0.55 より下へ落とさず持ち越し、敗者が先に床までダンプする（Analyst 2026-09-07 実測）。売り崩しの深さの差＝勝敗差。WOOL/MELON の SELL 量 N を『最後の 1 個の限界価格 ≥ β·base（β=0.55）』で解けば、scarcity/回復局面では price≥base で条件が常真＝生産律速の少量売り（勝者挙動）、glut では marg=β で止めて持ち越し、町 sink（WOOL）で価格が回復した日に自動で burst する。MELON は sink≈0 で回復しないので同式が『終盤まで床へ落とさない累積キャップ』として働く。終盤 d25-27 は β を DUMP_DAY(28) へ向けて 0 へ逓減し、d≥28 は全量清算（terminal 持ち越しは全損）。",
+ "source": "knowledge/analysis/2026-09-07_top12-endgame-sell-rates.md（#1 vs #2 2 戦の限界価格 β 実測）。state/STATUS.md『今夜のトラック状況（2026-09-07）』Track A。IDEA_POLICY『未使用の観測の利用／労働割当の構造変更』。",
+ "changes": [
+  "H2 本体: WOOL を SELL_FLOORS の在庫予算パスから、MELON を ALWAYS_SELL の全量売りから外し、両者を BETA_SELL の β 解法パスに載せた。beta_sell_cap(item, market_inv, day) がエンジン glut 価格式 price=base−amp·(inv−I0)²（amp=above_target·base/T², WOOL/MELON とも above_func='sq'）を N について解く: N = floor(I0 + sqrt((1−β)·base/amp) − market_inv) + 1。β=0.55（BETA_SELL_FRAC, 単一値・sweep しない）。d<25 は β=0.55、d25-27 は DUMP_DAY へ向け線形に 0 へ逓減、d≥DUMP_DAY(28)・シェッド溢れ(SHED_DUMP)は価格を問わず全量。BETA_MKT は engine MARKET_PARAMS の base/T/above_target をそのまま持つ（derived）。",
+  "FIX0006（gen0043 から移植・major）: イチゴ生産日の施肥を、まだ水やり前でも bonus_water が出る株は FERT_PRI_PAIR(層2)に上げて同じ訪問で水＋肥料の対を閉じる（pri = FERT_PRI_PAIR if (watered or bonus_water) else FERT_PRI）。gen0043 の他の diff（イチゴ31枚・窓(4,15)・FALLBACK STRAWBERRY）は市場律速で棄却済みのため持ち込まない。",
+  "FIX0009（open minor → applied）: 市場の組み立てを pre（開幕 denial buy, slot 0 固定）/ sells / buys（BUY_PRODUCT/LAND/ANIMAL/HIRE/SEED）の 3 リストに分け、最後に essential buy 用のスロットを確保してから SELL を品目価値（BASE_VALUE·qty）降順に詰める（keep_sells = MARKET_SLOTS − len(pre) − len(buys)）。溢れたら安い品目（WHEAT/EGG など）から落ち、HIRE/BUY_SEED が押し出されない。mest の更新順は SELL→BUY のままで購入の資金ゲートは不変（最終リストも SELL→BUY 並び）。"
+ ],
+ "excluded": "MILK・FERTILIZER の denial dump（gen0037）と STRAWBERRY の売却は一切触らない。β・amp は WOOL/MELON でしか実測していないため、他品目を変えると eval デルタが H2 に帰属できなくなる。WOOL の SELL_FLOORS(120) エントリは市場売却ループでは skip するが、家畜収穫のバンク解除ゲート(589 の pp>=SELL_FLOORS.get(product))用に残す（β 市場タイミングとは別機構）。明示的な burst 間隔ロジック（2 日）は入れない（β キャップの毎ターン評価で回復日 burst が自動再現される）。gen0043 の棄却済み diff は持ち込まない。",
+ "smoke": "vs starter s11/s42/s77 で両者 DONE（エラー 0）。check_fixes: applied 8/8 検出（FIX0001-0006・0009・0011）・回帰 0・open 5。--audit OK。audit_replay s42: d1-28 unfed/uncared=0。micro_audit s42 --assert（括弧内 親 gen0042 s42）: noop_total=0 ／ unfed_days=0 ／ uncared_days=0（3 つとも合格）。strawberry_yield 1.837(1.724)・melon_yield 5.933(5.867) は FIX0006 で改善。NG（inplace_share 0.4133<0.44・tile_util 0.6926<0.83・last_water_hour 23>14・各収量）は強帯実測の到達目標（FIX0013）で親 gen0042 も同一 6 件 NG＝H2 による新規回帰なし。品目別（s42, gen0044 vs gen0042）: WOOL sold 120/120 rev $9997/$9960・final_shed 0/0 ／ MELON sold 89/88 rev $20990/$20745・final_shed 0/0 ／ MILK rev $61653/$60630 ／ STRAWBERRY sold 191/181 rev $50705/$48262。全品目で売上が下がらず WOOL/MELON の terminal 在庫 0（腐らせ・DUMP_DAY 突入なし）。profile mean 0.0002s / max 0.0198s（1 秒 OK）。static_check OK。",
+ "status": "PROMOTED",
+ "notes": "50 シード eval 完了（records/eval_gen0044.json・baseline gen0036・seeds 50・seed_base 1000）。gate.pass=True: 全体マージン +$2,256 [+1,705, +2,808]・自分の資金 +$1,262 [+13, +2,511]・強帯マージン +$2,365 [+1,687, +3,044]（点推定正・CI 下限 >0）・rating_delta 0.0・slope +123.5・errors 0・too_good なし。Codex レビュー(gpt-5.6-sol/high) 2026-09-06 UTC 済み: 即死級 0、P1×3/P2×1 はすべて非致命で deferred（FIX0014-0017 に登録）→ 昇格。2026-09-06 UTC 昇格提出（--reason promote）。",
+ "review": {
+  "date": "2026-09-06",
+  "reviewer": "codex (gpt-5.6-sol / reasoning high)",
+  "candidate_sha256": "1992a15d5070cf951f3a08f0ae292f5f74733d788e001b216d03426b1e3504fb",
+  "checklist": "knowledge/REVIEW_CHECKLIST.md",
+  "diff_range": "agents/gen0042/main.py..agents/gen0044/main.py",
+  "thread": "<redacted-id>",
+  "findings": [
+   {"severity": "minor", "what": "[P1→minor] β 限界価格は共有市場の soft bound: 相手が同品目を同ターンに売ると在庫は最大 2·(N−1) 増え、実約定価格が β·base を割りうる（beta_sell_cap は自分の +N−1 しか見込まない）。エラーや破滅ではなく、β が甘い上限になるだけ。実コードで確認: 主戦場の供給不足 WOOL 局面（価格 $200+）ではそもそも束縛しない", "resolution": "deferred", "ledger": "FIX0017"},
+   {"severity": "major", "what": "[P1] FIX0009 由来: mest は全 SELL 候補の代金で加算するが sells[:keep_sells] で低価値 SELL を後から落とす。落とした SELL の架空代金で組んだ BUY_LAND/BUY_ANIMAL 等が資金不足で無言 no-op しうる（重い購入日 d10-11 で keep_sells が 1-2 に絞られる時。RESERVE=400 のクッションを架空代金が超えた分だけ土地/動物購入が遅延）。実コードで確認: L1124-1177 で mest += 全 SELL、L1261 で truncate", "resolution": "deferred", "ledger": "FIX0014"},
+   {"severity": "minor", "what": "[P1] H2 由来の非対称: WOOL の市場売却は β 動的判定に移したが、羊→shed の収穫解除ゲート(L626)は固定 SELL_FLOORS($120) のまま。β が売却可でも価格が $110-119 帯・または d25-27 の逓減床($27-82)では収穫されず d28 の強制収穫へ先送り。主戦場（WOOL $200+）では束縛しないが回復日 burst の一部を取り逃す", "resolution": "deferred", "ledger": "FIX0015"},
+   {"severity": "minor", "what": "[P2] beta_sell_cap の int() は負数を 0 方向へ切り捨て（floor でない）。市場在庫が理論上限を 1 未満超えた境界で正しい cap 0 のところ 1 を返し、β·base をわずかに割る 1 個を売る。修正: int(I0+root) − market_inv + 1（I0+root は正なので int=floor で安全）", "resolution": "deferred", "ledger": "FIX0016"}
+  ],
+  "blocking_resolved": true
+ },
+ "mechanisms": [
+  {
+   "name": "beta_marginal_sell_wool_melon",
+   "since": "gen0044",
+   "what": "WOOL/MELON の SELL 量 N を『最後の 1 個の限界価格 ≥ β·base』で解く（β=0.55）。scarcity/回復日は生産律速の少量売り、glut は marg=β で止めて持ち越し、d25-27 は β を 0 へ逓減、d≥28 は全量清算",
+   "constants": {"BETA_SELL_FRAC": 0.55, "BETA_SELL": ["WOOL", "MELON"], "taper_days": "25-27→DUMP_DAY(28)", "amp_derivation": "above_target·base/T² from engine MARKET_PARAMS"},
+   "origin": "tuned",
+   "ablation": "records/eval_gen0042.json（この機構を外した版＝親。WOOL=在庫予算 trickle / MELON=毎ターン全量）",
+   "why": "N を engine の glut 価格式から解くので amp はハードコードでなく base/T/above_target から導く。β=0.55 だけが tuned（勝者#1 が非終盤で割らなかった限界価格の床の実測クラスタ 0.51-0.60）。回復日 burst は β キャップの毎ターン評価で自動再現され、明示間隔は不要"
+  },
+  {
+   "name": "fert_pair_close_on_prod_day",
+   "since": "gen0044",
+   "what": "FIX0006: イチゴ生産日の施肥を、まだ水やり前でも bonus_water が出る株は FERT_PRI_PAIR(層2) に上げて同じ訪問で水＋肥料の対を閉じる",
+   "constants": {"FERT_PRI_PAIR": 2.06, "FERT_PRI": 2.88, "condition": "watered or bonus_water"},
+   "origin": "derived",
+   "ablation": "records/eval_gen0042.json（対を層4に置いた版＝親。生産日に水だけ済んで施肥が後回し）",
+   "why": "施肥を FERT_PRI（層4・PLANT の後）に置くと水やり（層2）だけ済んで未施肥のまま +1 止まりの株が出る。1 収穫あたり 1.75u（強帯 1.99u）。gen0043 で applied 化済みの 1 行を移植"
+  },
+  {
+   "name": "market_slot_reservation",
+   "since": "gen0044",
+   "what": "FIX0009: 市場注文を pre/sells/buys に分け、essential buy 用スロットを確保してから SELL を品目価値降順で詰める（keep_sells = MARKET_SLOTS − len(pre) − len(buys)）",
+   "constants": {"MARKET_SLOTS": 10, "sell_order": "BASE_VALUE·qty desc"},
+   "origin": "derived",
+   "ablation": "records/eval_gen0042.json（SELL を先頭に全部積んで market[:10] で切る版＝親）",
+   "why": "maxMarketOrdersPerTurn=10。SELL を全部先頭に積むと HIRE/BUY_SEED が末尾で押し出される。mest 更新順は SELL→BUY のままなので資金ゲートは不変"
+  }
+ ],
+ "mechanisms_doc": "この配列は親 gen0042 からの差分だけ。gen0042 の 2 機構（plant_reservation_on_arrival・farmer_excluded_from_feedcare_dmin）と gen0041 移植の FIX0003/FIX0011 会計修正、および gen0022→gen0036 系の全機構台帳（agents/gen0026/meta.json）はそのまま継承。",
+ "candidate_sha256": "1992a15d5070cf951f3a08f0ae292f5f74733d788e001b216d03426b1e3504fb"
+}

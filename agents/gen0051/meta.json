@@ -1,0 +1,128 @@
+{
+ "gen": "gen0051",
+ "parent": "gen0050",
+ "exp": "EXP0051",
+ "date": "2026-09-08",
+ "hypothesis": "gen0049(Stage B=SW イチゴ波前倒し) は 50seed で gate.pass=False だったが、その敗因は Stage B 自体ではなく carrot 未換金(FIX0020)だった: 前倒しで SW イチゴが早期 decay→WEED 化し carrot 転作が 7→18-21 枚に増幅、その大半が d29 収穫で carried.CARROT が未換金＋幽霊 SELL となり弱中相手で自資金を削って全体マージンを +$130[−771,+1031]（検出不能）に沈めた。一方で強帯マージンは +$1,267[+441,+2094] と明確に正で、Stage B の早売り成分は本物だった。FIX0020 を潰した gen0050 の上に Stage B を載せれば、増幅した carrot が全て換金され幽霊 SELL も止まるので、Stage B の強帯優位を殺さずに全体マージンも正へ浮く見込み。gen0050(FIX0020 単独) と本世代(FIX0020+Stage B) をどちらも baseline=gen0048 で測ることで、FIX0020 が Stage B を解錠するかを clean な 2×2 で読む。",
+ "source": "knowledge/experiments/EXP0049（Stage B 判定＝非昇格・敗因は FIX0020 の carrot 未換金）／state/HANDOFF.md 次の一手 #2／knowledge/analysis/2026-09-07_carrot-nonfiring-and-next-lever.md §2 Stage B。IDEA_POLICY §1（骨格の位相前倒し）＋機構の穴を塞ぐ修正（FIX0020）の合成。単独 sweep ではない。",
+ "changes": [
+  "gen0050（FIX0019+FIX0020 carrot 終盤清算）を親とし、その上に gen0049 の Stage B 3 変更を載せた合成世代。2 つの差分は互いに素な行域（FIX0020=carrot late-game d25-29 の ripe/last_plant_day/最終日 SELL sizing／Stage B=SW イチゴ from_day と land_target の d8 前倒し）で衝突なし。",
+  "Stage B-1: land_target() の SW 購入分岐 `if day >= 11: return 3` → `if day >= 8: return 3`（gen0049 §B-1 と同一）。NE/SE/expansion/初期の分岐は不変。",
+  "Stage B-2: CROP_PLANS[\"STRAWBERRY\"][\"tiles\"] の SW rows 6-8 の 15 枚 (x=0..4, y=6,7,8) だけ from_day 10→8（gen0049 §B-2 と同一）。NE (9,1,10)・MELON/WHEAT の SW タイル・早出し2 は不変。",
+  "Stage B-3(窓): windows (4,13) 維持（gen0049 と同一。(4,10) は植え残すため不採用）。",
+  "FIX0020(A): CROP_PLANS[\"CARROT\"][\"last_plant_day\"] 27→26／carrot ripe `age>=3 or (day>=FINAL_DAY-1 and age>=2)`／per-crop 植付期限 carrot 26（gen0050 から継承）。",
+  "FIX0020(B): 最終日の carried_item 集計を今ターン DROP する unit の在庫だけに限定（`actions[_ui][0]==\"DROP\"`。gen0050 から継承）。",
+  "他作物・継承 8 機構は 1 行も触っていない。gen0051 = gen0050 ∪ Stage B（diff で確認：gen0050 vs gen0051 は Stage B 3 hunk のみ、gen0049 vs gen0051 は FIX0020 4 hunk のみ）。"
+ ],
+ "status": "CHAMPION (2026-09-10, 人の判断で gate.pass=False を上書き。新プールで rating_delta +113.4 / 同条件 +107.7±27.2)",
+ "smoke": "vs starter seed 7/14/42: エラー 0・両者 DONE・gen0051 全勝。final_money 149253/155185/103829。参考: gen0049(Stage B のみ) 148829/154555/104742／gen0050(FIX0020 のみ) 同 seed 再走で比較用に取得／gen0048(親) 151122/161368/130253。FIX0020 上乗せで seed7/14 は gen0049 より +424/+630、seed42 は −913（≤8 seed は方向判断不可）。micro_audit --assert（seed 7/14/42）: critical-three (noop_total/unfed_days/uncared_days) 全 0 = OK。残る NG は FIX0013 強帯目標（--limit 対象）のみで gen0050 の NG 集合の部分集合＝新規回帰 0（gen0051 は tile_revisit_share が seed7/14 で NG→OK に改善、strawberry_yield も 1.629→1.65-1.887 に改善＝Stage B 前倒しの効果）。check_fixes applied 14/14・open 6（gen0050 と同一。FIX0008 carrot 部分適用で open）。profile max 0.0225s（<1.0 OK）。",
+ "leak_check": "合成の 2 差分は互いに素な行域なので親の leak 性質を継承する。Stage B の first divergence は d8（SW 購入日。gen0049 leak_check で d0-7 diff=0 を実測）、FIX0020 の変更は d25-29 のみ（gen0050 leak_check で d0-24 バイト同一を実測）。従って gen0051 は d0-7 で gen0048 とバイト同一、d8-24 は gen0049（=Stage B のみ）と同一挙動、d25-29 は gen0050（=FIX0020 のみ）の carrot 清算が加わる。diff による構造検証: `diff gen0050 gen0051`=Stage B 3 hunk のみ／`diff gen0049 gen0051`=FIX0020 4 hunk のみ（報告に添付）。",
+ "mechanisms": [
+  {
+   "name": "early_sw_strawberry_wave",
+   "since": "gen0049",
+   "what": "SW クアドラント購入日を d11→d8、SW イチゴ(rows 6-8 の 15 枚)の from_day を 10→8 に型ごと同時前倒し。land_target(day>=8→SW) と CROP_PLANS[STRAWBERRY].tiles の SW 15 枚 from_day を束ねて動かす。窓 (4,13) は不変。枚数不変。植付完了 d9（LB #1 実測目標）・decay を早めて早売り成分を作る。gen0051 では FIX0020 済みの gen0050 の上に載せたので、前倒しで増幅した carrot(18-21 枚)も全量換金される。",
+   "constants": {
+    "sw_land_day": 8,
+    "sw_strawberry_from_day": 8,
+    "sw_tiles_count": 15,
+    "window": "(4,13)_unchanged",
+    "prev_sw_land_day": 11,
+    "prev_from_day": 10
+   },
+   "origin": "observed",
+   "ablation": "records/eval_gen0050.json（この機構を外した版＝gen0050=FIX0020 のみ・Stage B 無し。gen0051 vs gen0050 が Stage B の isolated 効果）／records/eval_gen0048.json（Stage B も FIX0020 も無い親王者）",
+   "why": "gen0049 で Stage B は強帯マージン +$1,267[+441,+2094] と明確に正だったが、FIX0020 の carrot 未換金が弱中相手で自資金を削り全体を +$130 に沈めた（EXP0049）。FIX0020 を潰した gen0050 の上なら Stage B の強帯優位を殺さず全体マージンも正へ浮く見込み。IDEA_POLICY §1 の骨格位相前倒し。★方向は 50seed eval が確定。"
+  },
+  {
+   "name": "carrot_final_day_settlement",
+   "since": "gen0050",
+   "what": "carrot を FINAL_DAY-1(d28) までに全て収穫し d29 を丸一日 DROP+SELL 搬送に空ける終盤清算。(A) last_plant_day=26＋ripe=`age>=3 or (day>=FINAL_DAY-1 and age>=2)`。(B) 最終日の SELL 数量に数える carried 在庫を今ターン実際に DROP する unit の在庫だけに限定。FIX0020(A)+(B) と FIX0019 を同時解決。gen0050 から継承（gen0051 で変更なし）。Stage B で carrot 転作が 18-21 枚に増えるため本機構の効果が gen0050 単独より大きい想定。",
+   "constants": {
+    "last_plant_day": 26,
+    "final_harvest_ripe": "age >= 3 or (day >= FINAL_DAY - 1 and age >= 2)",
+    "FINAL_DAY": 29,
+    "carried_sell_guard": "actions[_ui][0] == \"DROP\""
+   },
+   "origin": "derived",
+   "ablation": "records/eval_gen0049.json（この機構を外した版＝gen0049=Stage B のみ・FIX0020 未修正。carrot 18-21 枚が未換金で全体を沈めた）",
+   "why": "carrot は非 ongoing で yield は WATER age∈[2,3] のみ、WATER は day<FINAL_DAY でしか発行されない。d29 に生きた carrot を残すと増収 0＋搬送不能で死蔵。d28 までに刈れば d29 の全時間を DROP+SELL に使える。SELL は shed 在庫からしか約定しない engine 仕様の帰結。"
+  },
+  {
+   "name": "carrot_layer2_reclass",
+   "since": "gen0048",
+   "what": "gen0047 の fast_carrot_rotation を層2化して発火させる Stage A 修正。carrot 窓内の WEED-DIG（層3 2.6→層2 2.22）と PLANT（層4 2.82→層2 2.24）を収量クラスに再分類。gen0051 で変更なし。",
+   "constants": {
+    "carrot_dig_pri": 2.22,
+    "carrot_plant_pri": 2.24,
+    "layer2_bounds": "[1.5, 2.25)",
+    "harvest_hpri": 2.2,
+    "other_crops_dig_pri": 2.6,
+    "other_crops_plant_pri": "unchanged"
+   },
+   "origin": "observed",
+   "ablation": "records/eval_gen0047.json（層3/4 で非発火の版）",
+   "why": "gen0047 で carrot DIG/PLANT がイチゴ HARVEST のピークに starve され植付 0 に終わった。層所属を経済クラスで決め直すと DIG→PLANT が LAST_PLANT_HOUR 前に回る。IDEA_POLICY §4。"
+  },
+  {
+   "name": "fast_carrot_rotation",
+   "since": "gen0047",
+   "what": "4 産を終えて WEED 化したイチゴタイル（25 枚）だけを d24-27 に DIG→CARROT 化する。CROP_PLANS[CARROT]（窓 (24,27)・from_day 24）＋種購入 carrot＋収穫 carrot 分岐＋BONUS_WINDOW/MAX_YIELD。last_plant_day は gen0050/gen0051 で 26（FIX0020）。",
+   "constants": {
+    "window": "(24,27)",
+    "last_plant_day": 26,
+    "from_day": 24,
+    "plant_pri": 2.24,
+    "dig_pri": 2.22,
+    "water_pri": 3.02,
+    "seed_cost": 20,
+    "buy_cap": 12,
+    "tiles_count": 25,
+    "BONUS_WINDOW": "(2,3)",
+    "MAX_YIELD": 3
+   },
+   "origin": "observed",
+   "ablation": "records/eval_gen0046.json（carrot 無し）",
+   "why": "LB #1 両席の実測（d24 開始・終盤自陣 WEED≈0）を取り込む。"
+  }
+ ],
+ "mechanisms_doc": "gen0051 = gen0050（親・FIX0019+FIX0020 carrot 終盤清算）のコピー＋Stage B 3 変更（early_sw_strawberry_wave）。継承機構は gen0048/gen0050 と同一（funded_wool_expansion・feed_buffer_lookahead_on_expansion・expansion_hands_bump・market_budget_reconcile・beta_harvest_unlock_gate・carrot_layer2_reclass・fast_carrot_rotation・carrot_final_day_settlement）。gen0051 の新規は『既存 2 機構（early_sw_strawberry_wave × carrot_final_day_settlement）を初めて同一世代に載せた合成』で、単独機構の追加はない。台帳は gen0049/gen0050 を参照。FIX0008 は carrot 部分適用で open のまま。",
+ "candidate_sha256": "d8db205d908a342509ab03cbfcc60eb419a51d288138c4dbd7bd2e581af1c890",
+ "notes": "親（コード基盤）= gen0050。eval baseline = records/eval_gen0048.json（現王者。gen0050 の昇格可否に依存しない robust な昇格ゲート＋ gen0048/49/50/51 を同一 baseline で並べる 2×2 factorial）。gen0050 が本晩昇格して王者になった場合、gen0051 の対王者昇格は gen0051 と gen0050 の『対 gen0048 マージン』を同一シードで比較して読む（別途 gen0051 vs gen0050 を取り直してもよい）。eval は Supervisor がキューに積む（本世代からは submit/approve/commit しない）。Codex レビューは Supervisor が eval 後・昇格前に実施（本 meta の review は placeholder。捏造しない）。candidate_sha256 は現 main.py の値でレビュー前にコードを触ったら取り直す。",
+ "review": {
+  "status": "pending",
+  "note": "Codex レビュー未実施。Supervisor が eval 後・昇格前に knowledge/REVIEW_CHECKLIST.md の 7 観点で実施し findings/blocking_resolved/candidate_sha256 を記録する。合成世代なので特に (1) Stage B と FIX0020 の相互作用（増幅した carrot の清算が d29 の DROP+SELL 帯域を溢れさせないか）(2) carried_sell_guard の DROP 判定が Stage B で増えた unit 数でも正しく発火するか を観点に加える。placeholder（捏造しない）。",
+  "findings": []
+ },
+ "eval": {
+  "file": "records/eval_gen0051.json",
+  "seeds": 50,
+  "baseline": "records/eval_gen0048.json",
+  "gate_pass": false,
+  "rating_delta": 0.0,
+  "margin_delta_paired": {
+   "mean": 189.5,
+   "ci95": [
+    -716.5,
+    1095.5
+   ]
+  },
+  "money_delta_paired": {
+   "mean": -508.2,
+   "ci95": [
+    -2371.6,
+    1355.2
+   ]
+  },
+  "strong_margin_delta_paired": {
+   "mean": 1253.1,
+   "ci95": [
+    431.5,
+    2074.7
+   ]
+  },
+  "slope_delta": -352.2,
+  "decision": "promote却下(overall検出不能)。強帯 de-confound済み正 → measure承認キュー投入(cycle8)。人がapprove_submit.py gen0051で判断",
+  "cycle": "2026-09-08 cycle8"
+ }
+}

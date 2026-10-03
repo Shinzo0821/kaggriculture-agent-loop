@@ -1,0 +1,265 @@
+{
+  "gen": "gen0025",
+  "parent": "gen0024",
+  "exp": "EXP0025",
+  "date": "2026-09-05",
+  "track": "肥料をイチゴに撒く（+ イチゴの生産日の水やりを分ける）",
+  "hypothesis": "動物 12 頭から毎日 12 個出る肥料を全部売っていた（FERTILIZE 0 回）。強帯はイチゴに撒いて 1 回あたり収量を 2 倍にしている（kaito 1.99・rayk 2.01 vs こちら 1.00）。エンジンの規則から、イチゴ 1 株につき肥料 2 個で 4 回の生産すべてを倍にできる。IDEA_POLICY「出してよい」2 番（未使用の行動）＋ 5 番（強帯の型）。",
+  "source": "knowledge/analysis/2026-09-05_micro-audit-gen0022.md ／ state/plans/2026-09-05_micro-execution-plan.md §4",
+  "changes": [
+    "FERTILIZE を撒く: STRAWBERRY の age が 9/11/13/15（EOD 生産が起きる age。エンジン kaggriculture.py 787-800 の first_yield_day=10 / interval=2 / max_yield=4 から導出）で、かつ fertilized_until_day < day なら FERTILIZE todo を出す。生産 age は全部奇数で FERTILIZE は 3 日間有効（day..day+2）なので、奇数 age に撒くと 1 個で 2 回ぶんの生産をカバーする（1 株 2 個で 4 回全部が +1→+2）。偶数 age に撒くと 1 回しかカバーしないので撒かない。",
+    "**イチゴの生産日の水やりを分けた**: エンジンの肥料ボーナスは `was_watered and fertilized_until_day >= day` の両方が要る。イチゴの水やりは生産日にしか収量を作らず、他の日は枯死防止（consecutive_unwatered < 2）にしか効かない。gen0024 の bonus_water（一時作物の窓）と同じ原理を ongoing にも適用し、生産日の WATER を高い帯に置いた。これを入れないと、撒いた肥料の 35.5% が未水やりでそのまま無駄になった（実測）。",
+    "物流: 「肥料を持つ hand だけが FERTILIZE を取れる」（FEED の小麦と同じ need）＋ 自ゾーンに撒く先がある hand はシェッドから一括 PICKUP（ZWHEAT と同じ形）。さらに **肥料を持つ hand は自ゾーン外の FERTILIZE も拾える**（既存の afternoon_rescue と同じ形。肥料は動物タイルで湧くのに撒く先はイチゴで、ゾーンはクアドラント内 row-major なので別ゾーンになるのが常態。ゾーン内に閉じると 22 回撒くべきところが 8-9 回しか回らなかった）。",
+    "売却: 今日〜2 日以内に撒く予定の個数だけシェッドに残し、余りは従来通り即売り（肥料は d0 が最高値で単調減衰するので寝かせる価値はない）。1 個で生産 2 回が +1→+2（イチゴ 2 個 ≈ base $240）なので、肥料の売値 $100 より撒く方が高い。",
+    "優先度: FERTILIZE は PLANT(2.70-2.85) の後・WATER(2.90-3.05) の前（2.88）。ただし **既に水をやった生産日の株は「あと肥料だけ」で +2 が確定する**ので生産日の水やりと同じ帯（2.06）に上げる。"
+  ],
+  "smoke": "vs 強帯 3 体（kaito_v48 s42 / rayk_c95 s7 / prvsiyan_v189c s100）。**決定論的なミクロ指標（gen0024 → gen0025）**: **イチゴ 1 回収量 1.00/1.03/1.00 → 1.83/2.00/1.90**（規則上限 2.0） ／ FERTILIZE 回数 0 → 16/17/21（強帯は 47-70） ／ 生産日 EOD に「水やり済みかつ肥料あり」の株 0% → 72.2%（s42） ／ 小麦収量 3.92/3.82/3.88 → 3.92/3.82/3.90（不変） ／ メロン 6.00（不変） ／ タイル利用率 74.1/77.0/75.0% → 76.2/76.3/76.3% ／ 未使用タイル 0 ／ no-op 0 ／ unfed 0 日・uncared 0 日（3 シードとも）。profile ok_mean_lt_0.1 / ok_max_lt_1.0 とも true。ops/static_check.py OK。**資金は 3 シードでは判定しない**（検出限界 24）。",
+  "status": "SMOKE_PASSED",
+  "notes": "計画 §4 は「肥料を撒く」だけだったが、それだけでは **イチゴ 1.32-1.38 までしか上がらなかった**。撒けているのに効かない原因が 2 つあり、両方ともエンジンの規則から説明がつく: (1) 肥料が撒く先の hand に渡らない（動物とイチゴが別ゾーン）→ 自ゾーン外の FERTILIZE を許可して 1.43-1.64、(2) 肥料ボーナスは当日の水やりが前提なのに生産日の 35.5% が未水やり → 生産日の水やりを分けて 1.83-1.90、(3) 水やり済みの株に肥料が届かない 18.9% → 対を閉じる優先度で 1.83-2.00。／ **イチゴ以外への肥料は入れていない**。メロン（age 6-12 の水やりボーナスが +1→+2）は IPO 日程が変わるので別世代。小麦も max_yield=6 なので肥料で 4→6 にできるが、同上。／ 単シードの資金は割当の微小変更で ±$30k 振れる。判定は 24→50 シード。",
+  "mechanisms": [
+    {
+      "name": "zone_labor",
+      "since": "gen0022",
+      "what": "農場をクアドラント単位のゾーンに割り、hand を日単位でゾーン専属にする。ルーチンは FEED→CARE→WATER→HARVEST の固定順",
+      "constants": {
+        "n_zones": "max(n_hands, hands_target(day), 1)"
+      },
+      "origin": "derived",
+      "ablation": null,
+      "why": "gen0021 は毎時グローバル最近傍再割当で hand-hour の 76% を移動に浪費していた（knowledge/analysis/2026-09-05_gen0021-labor-audit.md）"
+    },
+    {
+      "name": "bulk_wheat_pickup",
+      "since": "gen0022",
+      "what": "朝1回のシェッド訪問でゾーン内の動物数+1 まで小麦を一括 PICKUP（旧: 2個まで）",
+      "constants": {
+        "carry": "zone_animals + 1"
+      },
+      "origin": "derived",
+      "ablation": null,
+      "why": "隔日の unfed スパイクは在庫でなく物流（2個携行制限でシェッド往復）が原因だった"
+    },
+    {
+      "name": "task_priorities",
+      "since": "gen0024",
+      "what": "todo の優先度。日課の順は FEED 0.9 → CARE 0.95 → 枯死防止 WATER 1.0 → 作物 HARVEST 1.9-2.2 → 動物物流 2.4-2.6 → **PLANT 2.70-2.85** → WATER 2.9-3.05 → 肥料回収 4.0（連続 unfed は 0.0 で最優先）",
+      "constants": {
+        "water_death": 1.0,
+        "care": 0.95,
+        "feed": 0.9,
+        "feed_urgent": 0.0,
+        "plant": "> 動物物流(2.6), < water(2.90)"
+      },
+      "origin": "tuned",
+      "ablation": null,
+      "why": "gen0021 の CARE=3.5 はデッドレターだった。gen0024 は PLANT を WATER の前へ: 最下位（3.30-3.40）のままだと WATER が h21-23 まで続いて PLANT の順番が来ず LAST_PLANT_HOUR で締め切られ、空きタイルが 8-17/50 残っていた。plant の値は**順序だけ**が意味を持つ（当てにいった値ではない）。0.9/0.95/1.0 の 3 つは依然 tuned のまま（削る世代の候補）。"
+    },
+    {
+      "name": "cash_reserve",
+      "since": "gen0021",
+      "what": "全ての discretionary buy（土地・動物・種）に現金リザーブを残す",
+      "constants": {
+        "RESERVE": 400
+      },
+      "origin": "tuned",
+      "ablation": null,
+      "why": "gen0020 は d10 メロン IPO の proceeds を全額再投資して現金 $20 → feed が買えず動物 escape（EXP0020）"
+    },
+    {
+      "name": "sell_floors",
+      "since": "gen0013",
+      "what": "プレミアム品はこの価格以上なら即全量売り",
+      "constants": {
+        "MILK": 96,
+        "WOOL": 120,
+        "STRAWBERRY": 72,
+        "_rule": "base 価格の 0.6"
+      },
+      "origin": "tuned",
+      "ablation": null,
+      "why": "base×0.6 という比率は導けるが、0.6 という係数自体は当てにいった値"
+    },
+    {
+      "name": "endgame_liquidation",
+      "since": "gen0008",
+      "what": "d28 以降は価格を問わず全量売却、d29 は手持ちを DROP してでも換金",
+      "constants": {
+        "DUMP_DAY": 28,
+        "FINAL_DAY": 29,
+        "LAST_FEED_DAY": 28,
+        "LAST_PLANT_DAY": 25,
+        "LAST_PLANT_HOUR": 20
+      },
+      "origin": "derived",
+      "ablation": null,
+      "why": "ゲームは 30 日（d0-29）。d25 植付が age4 で d29 に間に合う限界＝構造から導ける"
+    },
+    {
+      "name": "afternoon_rescue",
+      "since": "gen0022",
+      "what": "h12 以降は自ゾーン外の FEED、h18 以降は自ゾーン外の CARE も拾う",
+      "constants": {
+        "feed_from_hour": 12,
+        "care_from_hour": 18
+      },
+      "origin": "tuned",
+      "ablation": null,
+      "why": "ゾーン専属だけだと担当 hand の小麦切れ・夕方設置の動物が取り残される。時刻そのものは当てにいった値"
+    },
+    {
+      "name": "animal_placement_window",
+      "since": "gen0022",
+      "what": "動物の PICKUP は h14 まで、PLACE は h18 まで。夕方の新規設置はせずシェッド泊で翌朝設置",
+      "constants": {
+        "pickup_until_hour": 14,
+        "place_until_hour": 18
+      },
+      "origin": "derived",
+      "ablation": null,
+      "why": "設置直後に世話が間に合わない動物を作らないため（daily reset で携行動物はシェッドに戻る）"
+    },
+    {
+      "name": "harvest_supply_control",
+      "since": "gen0022",
+      "what": "収穫タイミングで供給を絞る（労働側の出荷制御）。shed 在庫が閾値を超えたらプレミアム品も全量ダンプ。gen0025: 肥料は撒く予定の分をシェッドに残してから余りを売る",
+      "constants": {
+        "SHED_DUMP": 78,
+        "GLUT_SLACK": 10,
+        "DROP_VALUE": 500
+      },
+      "origin": "tuned",
+      "ablation": null,
+      "why": "自分でグラットを起こして価格を潰さないため。閾値は実測から当てた値（DROP_VALUE は公開実装 Rayk C72 の 500 を採用）"
+    },
+    {
+      "name": "land_curve",
+      "since": "gen0021",
+      "what": "土地の購入日と枚数（gen0022 は NW+NE の 2 枚、gen0023 は d11 に SW を加えて 3 枚）",
+      "constants": {
+        "LAND_PRICES": [
+          1000,
+          2000,
+          4000
+        ],
+        "target": 2
+      },
+      "origin": "derived",
+      "ablation": null,
+      "why": "上位の実測 modal（2枚目 d9・3枚目 d12 中央値）に合わせた"
+    },
+    {
+      "name": "hands_curve",
+      "since": "gen0013",
+      "what": "hands の増員曲線（gen0022: 12、峰 d10/d20=14。gen0023: d11-28 を 13）",
+      "constants": {
+        "FIB": "hire コストは fib 円/日",
+        "HIRES_PER_TURN": 3,
+        "base": 12,
+        "peak_d10_d20": 14
+      },
+      "origin": "tuned",
+      "ablation": null,
+      "why": "上位は 10-12 hands で 12-17 頭を回している（knowledge/analysis/2026-09-05_sparring-audit.md）。gen0023 の 13 人目は過剰の疑い"
+    },
+    {
+      "name": "water_before_harvest",
+      "since": "gen0024",
+      "what": "一時作物がボーナス窓の中で未水やりなら、その時間は HARVEST を出さず WATER を先に出す",
+      "constants": {
+        "WHEAT": "age 2-4",
+        "MELON": "age 6-12",
+        "WATER_FIRST_LAST_HOUR": "HOURS_PER_DAY - 3"
+      },
+      "origin": "derived",
+      "ablation": null,
+      "why": "エンジン kaggriculture.py 438-443: yield_units は 1 で始まり、window_start=(max_yield_day+1)//2 から max_yield_day までの水やり 1 回につき +1。窓の age は規則から出る値で、当てにいった値ではない。gen0022 は ripe タイルの WATER を明示的に抑止していて、収穫時 watered_today=False が 45/45 だった"
+    },
+    {
+      "name": "fallback_wheat",
+      "since": "gen0024",
+      "what": "計画が今後 5 日以内に使わない空きタイルに小麦を植える",
+      "constants": {
+        "FALLBACK_CROP": "WHEAT",
+        "FALLBACK_CYCLE_DAYS": "5 = age4 収穫 + 1 日の余裕"
+      },
+      "origin": "derived",
+      "ablation": null,
+      "why": "計画表がタイル→作物→窓の固定表で、窓を逃したタイルと計画に無いタイルが試合終了まで空いていた（一度も使わない解放タイル 4-5 枚、利用率 66%）。小麦は種 $10・age4 収穫の唯一の 4 日回転作物で、飼料にも売りにも使える"
+    },
+    {
+      "name": "seed_purchase_window",
+      "since": "gen0024",
+      "what": "種は「今この時刻から窓が閉じるまでに物理的に植えられる数」までしか買わない",
+      "constants": {
+        "cap": "残り植付時間 × units（1 unit は 1 時間に 1 回しか PLANT できない）"
+      },
+      "origin": "derived",
+      "ablation": null,
+      "why": "gen0022 は窓の最終日の夕方でも空きタイル数だけ種を買い、そのまま窓が閉じて死に種になっていた（イチゴ $100・メロン $80、seed42 で $440）。損失防止であって収益ではない"
+    },
+    {
+      "name": "fertilize_strawberry",
+      "since": "gen0025",
+      "what": "イチゴの生産日（奇数 age 9/11/13/15）に肥料を撒き、EOD 生産を +1 から +2 にする",
+      "constants": {
+        "STRAW_PROD_AGES": "(9, 11, 13, 15)",
+        "FERT_COVER_DAYS": 2,
+        "_derivation": "first_yield_day=10 / interval=2 / max_yield=4 → 生産 age = 9,11,13,15。FERTILIZE は day..day+2 の 3 日有効なので、奇数 age に撒けば 2 回ぶんをカバーする"
+      },
+      "origin": "derived",
+      "ablation": null,
+      "why": "動物から毎日 12 個出る肥料を全部売っていた（FERTILIZE 0 回）。強帯はイチゴに撒いて 1 回収量を 2 倍にしている"
+    },
+    {
+      "name": "production_day_water",
+      "since": "gen0025",
+      "what": "ongoing 作物（イチゴ）の水やりを「生産日（収量を作る）」と「それ以外（枯死を防ぐだけ）」に分け、生産日を高い帯に置く",
+      "constants": {
+        "prod_ages": "STRAW_PROD_AGES と同じ"
+      },
+      "origin": "derived",
+      "ablation": null,
+      "why": "エンジンの EOD 生産は was_watered が前提で、生産日以外の水やりは consecutive_unwatered < 2 の維持にしか効かない。分けないと撒いた肥料の 35.5% が未水やりで無駄になった（実測）"
+    },
+    {
+      "name": "fertilizer_logistics",
+      "since": "gen0025",
+      "what": "肥料を持つ hand だけが FERTILIZE を取れる（need）／自ゾーンに撒く先がある hand はシェッドから一括 PICKUP ／肥料を持つ hand は自ゾーン外の FERTILIZE も拾える",
+      "constants": {
+        "FERT_PRI": "> PLANT(2.85), < WATER(2.90)",
+        "FERT_PRI_PAIR": "水やり済みの生産日タイルは生産日 WATER と同じ帯",
+        "FERT_PICKUP_PRI": "FERTILIZE の直前"
+      },
+      "origin": "derived",
+      "ablation": null,
+      "why": "肥料は動物タイルで湧くのに撒く先はイチゴで、ゾーンはクアドラント内 row-major なので別ゾーンになるのが常態。ゾーン内に閉じると 22 回撒くべきところが 8-9 回しか回らなかった（実測）"
+    }
+  ],
+  "mechanisms_doc": "機構の台帳（計画 §5-A）。origin=derived はゲーム構造から導ける機構、tuned は当てにいった値。**昇格 2 回に 1 回は tuned の機構を 1 つ外した『削る世代』を作り、対応付き評価で CI が 0 をまたげば外したまま採用する**（§5-B）。ablation にはその評価 JSON のパスを入れる。",
+  "review": {
+    "date": "2026-09-05",
+    "reviewer": "codex",
+    "candidate_sha256": "7937293f6f0247e72712d9181c2e012880f3432fbe86c46c7c02d2cac77249f5",
+    "checklist": "knowledge/REVIEW_CHECKLIST.md",
+    "diff_range": "agents/gen0024/main.py..agents/gen0025/main.py",
+    "findings": [
+      {
+        "severity": "major",
+        "what": "移動中の hand が shed_fert_free を予約し、シェッド上に居る後続 hand が肥料を積めない（幽霊予約）。肥料 1 個・先行 hand がシェッドから離れている・双方のゾーンに施肥需要がある条件で、先行が EAST・後続が PASS になるのを再現。gen0022 で指摘された小麦の幽霊予約と同型で、肥料と種にも同じ形が残っている",
+        "resolution": "deferred"
+      },
+      {
+        "severity": "minor",
+        "what": "施肥対象ゾーンの所有者が未雇用だと、シェッドに肥料があっても誰も取り出せない。PICKUP 候補が『自ゾーンに施肥需要がある hand』限定で、farmer や他ゾーンの暇な hand に救済経路が無い",
+        "resolution": "deferred"
+      },
+      {
+        "severity": "major",
+        "what": "終盤清算の漏れ（gen0024 以前からの継承）: 最終行動は step=718 / d29 h22。シェッド上で手持ち MILK があり shed 在庫が 0 の場合、DROP は出すが SELL は出さない。市場数量を『行動前の shed』から作るため。エンジンは DROP → 市場の順なので本来は同ターンに売れる。収穫候補にも帰還・DROP・売却までの残り時間判定が無い",
+        "resolution": "deferred"
+      }
+    ],
+    "blocking_resolved": true,
+    "note": "fatal（未捕捉例外・1秒超過・市場スロット制約違反）は無し。負荷確認は 14 hands + farmer・全 100 タイル埋めで最大 3.64 ms。指摘 3 件はいずれも静かな非効率で、REVIEW_CHECKLIST の deferred 相当。"
+  }
+}

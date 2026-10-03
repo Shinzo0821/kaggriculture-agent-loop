@@ -1,0 +1,784 @@
+{
+ "version": 1,
+ "note": "世代から独立した修正台帳（DIRECTIVES Q2 / 2026-09-06）。人が読む版は knowledge/FIXES.md。検査は ops/check_fixes.py。",
+ "conventions": {
+  "status": {
+   "applied": "王者系統に入っている。ops/check_fixes.py が新世代で検出できなければ回帰として FAIL",
+   "open": "まだ直っていない（または直ったか未確認）。新世代を作るとき候補として提示される",
+   "wontfix": "直さないと決めた。理由を why に書く"
+  },
+  "detect": "判定順は forbid → require → marker。forbid にマッチしたら未適用（marker で覆せない）。require があるならすべてマッチして初めて適用済み（marker だけでは通さない）。require が無い項目だけ marker（main.py 中の FIX ID の文字列）で判定する。status=applied で detect が無い台帳は読み込み時に弾かれる",
+  "sources": "指摘の出所を genNNNN#<meta.json review.findings のインデックス> で書く。--audit がこの対応で台帳の網羅を検査する"
+ },
+ "fixes": [
+  {
+   "id": "FIX0001",
+   "title": "移動中の hand による在庫の幽霊予約（ZWHEAT / ZFERT）",
+   "severity": "major",
+   "status": "applied",
+   "found_date": "2026-09-05",
+   "first_fixed_in": "gen0023",
+   "applied_since": "gen0036",
+   "sources": [
+    "gen0025#0",
+    "gen0034#1"
+   ],
+   "exp": "knowledge/experiments/EXP0036_zone-and-reservation-cleanup.md",
+   "symptom": "シェッドへ歩いている hand が shed_wheat_free / shed_fert_free を減らすため、既にシェッド上にいる後続 hand が実在庫を積めない。歩行中の予約は次ターンに持ち越されない幽霊予約",
+   "fix": "在庫の減算を `if (ux, uy) == (x, y):`（今ターン実際に PICKUP する hand）で囲む",
+   "why": "gen0023 で一度直したが非昇格・gen0024 の親が gen0022 だったため王者系統に伝わらず、13 世代あとの gen0034 レビューで同じ指摘を受けた。この台帳を作る直接の原因",
+   "detect": {
+    "marker": "FIX0001",
+    "require": [
+     "if\\s*\\(ux,\\s*uy\\)\\s*==\\s*\\(x,\\s*y\\)\\s*:\\s*\\n\\s*shed_wheat_free\\s*-=",
+     "if\\s*\\(ux,\\s*uy\\)\\s*==\\s*\\(x,\\s*y\\)\\s*:\\s*\\n\\s*shed_fert_free\\s*-="
+    ]
+   }
+  },
+  {
+   "id": "FIX0002",
+   "title": "ゾーンの重み分割がクアドラント境界で切れない",
+   "severity": "major",
+   "status": "applied",
+   "found_date": "2026-09-06",
+   "first_fixed_in": "gen0036",
+   "applied_since": "gen0036",
+   "sources": [
+    "gen0034#0"
+   ],
+   "exp": "knowledge/experiments/EXP0036_zone-and-reservation-cleanup.md",
+   "symptom": "ソート済み items を通しで累積して切るため NE の末尾と SW の先頭が同じゾーンになる（実測で最遠 14 歩）。3 クアドラントで顕在化",
+   "fix": "隣接する同じクアドラントの区間を groups にまとめ、最大剰余法でゾーン本数を配ってから group 内で切る",
+   "why": "土地を増やすたびに再発しうる型。土地の世代を作るときは必ず確認する",
+   "detect": {
+    "marker": "FIX0002",
+    "require": [
+     "groups\\.append\\(\\[q,",
+     "n_zones\\s*>=\\s*len\\(groups\\)"
+    ]
+   }
+  },
+  {
+   "id": "FIX0003",
+   "title": "終盤清算の漏れ（最終ターンの DROP が SELL 数に反映されない）",
+   "severity": "major",
+   "status": "applied",
+   "found_date": "2026-09-05",
+   "first_fixed_in": "gen0041",
+   "applied_since": "gen0041",
+   "sources": [
+    "gen0024#4",
+    "gen0025#2",
+    "gen0026#2",
+    "gen0031#2"
+   ],
+   "symptom": "最終行動 step=718 / d29 h22。シェッド上で手持ち MILK があり shed 在庫が 0 だと DROP は出すが SELL は出さず、納屋に残って換金されない。市場数量を『行動前の shed 在庫』で決めているため",
+   "fix": "市場の SELL 数量を『行動後の shed 在庫』（今ターンの DROP を含む）で決める。最終ターンだけの特例で足りる",
+   "why": "4 世代連続で同じ指摘。額は小さいが確実に取り逃している",
+   "detect": {
+    "marker": "FIX0003",
+    "require": [
+     "carried_item\\s*=\\s*\\{\\}",
+     "carried_item\\.get\\(\"WHEAT\"",
+     "n\\s*=\\s*shed\\.get\\(item,\\s*0\\)\\s*\\+\\s*carried_item\\.get\\(item,\\s*0\\)"
+    ]
+   }
+  },
+  {
+   "id": "FIX0004",
+   "title": "移動中のユニットによる planned_seed の幽霊予約",
+   "severity": "major",
+   "status": "applied",
+   "found_date": "2026-09-05",
+   "first_fixed_in": "gen0042",
+   "applied_since": "gen0042",
+   "sources": [
+    "gen0024#3"
+   ],
+   "symptom": "移動中のユニットが planned_seed を予約し、現地にいる hand が植えられない。FIX0001 と同系統（gen0022 から継承）",
+   "fix": "種数の予約を『今ターン実際に植える hand（(ux,uy)==(x,y)）』に限定する。タイルの claim は歩行中も維持し、種購入は plant_slots で数えるので過剰購入にはならない",
+   "why": "FIX0001 を直したときに同系統として一緒に潰すべきだった",
+   "detect": {
+    "marker": "FIX0004",
+    "require": [
+     "need\\.startswith\\(\"SEED:\"\\)\\s*\\n\\s*and\\s*\\(ux,\\s*uy\\)\\s*==\\s*\\(x,\\s*y\\)"
+    ]
+   }
+  },
+  {
+   "id": "FIX0005",
+   "title": "farmer と所有者 hand が互いを止めて両方 PASS",
+   "severity": "major",
+   "status": "applied",
+   "found_date": "2026-09-05",
+   "first_fixed_in": "gen0042",
+   "applied_since": "gen0042",
+   "sources": [
+    "gen0026#0"
+   ],
+   "symptom": "所有者保護（_owner_can_come）は farmer を除外するのに、FEED/CARE の最寄り判定（dmin）には farmer が残るため、両者が譲り合って PASS になる",
+   "fix": "dmin の候補から farmer を『所有者が来られる間（_owner_can_come が True）』は外す（保護の対象集合と最寄り判定の対象集合を一致させる）。rescue 時・所有者不在時は従来どおり候補に残る",
+   "why": "unit-hour をまるごと捨てる型の損。『労働は量ではなく質』の原理から見て優先度が高い",
+   "detect": {
+    "marker": "FIX0005",
+    "require": [
+     "if\\s+_owner_can_come\\(x,\\s*y,\\s*zi,\\s*op\\):\\s*\\n\\s*continue",
+     "elif\\s+not\\s+\\(rescue\\s+or\\s+owner\\s+is\\s+None\\s+or\\s+zi\\s*==\\s*owner\\)"
+    ]
+   }
+  },
+  {
+   "id": "FIX0006",
+   "title": "窓の中の WATER が HARVEST より前で収穫＝換金が遅れる／生産日の水＋肥料ペアの取りこぼし",
+   "severity": "major",
+   "status": "applied",
+   "found_date": "2026-09-05",
+   "first_fixed_in": "gen0043",
+   "applied_since": "gen0043",
+   "sources": [
+    "gen0024#1"
+   ],
+   "exp": "knowledge/experiments/EXP0043_strawberry-reclaim.md",
+   "symptom": "WATER(1.89) が HARVEST(1.90) より前なので、水やり済みの株をその場で収穫せず別の株へ移る（seed42 d10 で h6→h19）。同根で、イチゴ生産日に水やり(層2)は済むのに施肥(FERT_PRI 層4・PLANT の後)が後回しになり未施肥のまま +1 止まり＝1 収穫あたり 1.75u（強帯 1.99u）",
+   "fix": "melon/wheat の harvest-vs-water は gen0032 の訪問完了（visit_ok+d==0 の DAILY_TILE_OPS を VISIT_LAYER に持ち上げ）で立っているタイルは収穫先行に解消済み。残る actionable な取りこぼし＝イチゴ生産日の水＋肥料ペアを、まだ水やり前でも施肥を FERT_PRI_PAIR(層2)に上げて同じ訪問で対を閉じる（`pri = FERT_PRI_PAIR if (watered or bonus_water) else FERT_PRI`）。visit_ok=False の帯（最終日・植付締切）は day<FINAL で従来どおり除外",
+   "why": "gen0036 で悪化した inplace_share / tile_revisit_share と同じ根。イチゴの生産量律速の一因（EXP0043）",
+   "detect": {
+    "marker": "FIX0006",
+    "require": [
+     "FERT_PRI_PAIR if \\(watered or bonus_water\\)"
+    ]
+   }
+  },
+  {
+   "id": "FIX0007",
+   "title": "施肥ゾーンの所有者が未雇用だと肥料が取り出せない",
+   "severity": "minor",
+   "status": "open",
+   "found_date": "2026-09-05",
+   "sources": [
+    "gen0025#1"
+   ],
+   "symptom": "PICKUP 候補が『自ゾーンに施肥需要がある hand』限定で、farmer や他ゾーンの暇な hand に救済経路が無い",
+   "fix": "自ゾーンに仕事が無い hand の fallback（eval_todos(False)）に一括 PICKUP を含める",
+   "detect": null
+  },
+  {
+   "id": "FIX0008",
+   "title": "fallback 地の DIG と同ターンに種を買えず植付が 1 ターン遅れる",
+   "severity": "minor",
+   "status": "open",
+   "found_date": "2026-09-05",
+   "sources": [
+    "gen0024#7",
+    "gen0048#2"
+   ],
+   "symptom": "DIG したタイルの種を同じターンの市場スロットで買えないため、植付が翌ターンになる（計画地の DIG にも同系統の穴） ／ gen0048 carrot 窓でも再現: WEED を見た時点で種需要に数え DIG の実行可能性を予約しないため、DIG が未実行に終わると種が死蔵（3 smoke seed とも carrot 種 9 買・PLANT 7・最終 seeds.CARROT=2＝各試合約$40 の確定損）。かつ最終窓 d27 の h20 以降でも DIG todo が残り植付不能な除草を選びうる（買 cap も理論 PLANT 手数だけを数え移動/DIG/上位 todo を差し引かない）",
+   "fix": "市場組み立て時に『今ターン DIG する予定のタイル』も種の需要に数える",
+   "detect": null
+  },
+  {
+   "id": "FIX0009",
+   "title": "小口 SELL が 1 ターン 10 件の市場枠を食って HIRE / BUY_SEED を押し出す",
+   "severity": "minor",
+   "status": "applied",
+   "found_date": "2026-09-05",
+   "first_fixed_in": "gen0044",
+   "applied_since": "gen0044",
+   "sources": [
+    "gen0031#0"
+   ],
+   "exp": "knowledge/experiments/EXP0044_beta-sell-burst.md",
+   "symptom": "maxMarketOrdersPerTurn = 10。合成観測で gen0026 = 10 件・gen0031 = 12 件となり、末尾の HIRE / BUY_SEED が落ちる",
+   "fix": "SELL と essential buy（BUY_PRODUCT/LAND/ANIMAL/HIRE/SEED）を別リストに分け、最後に essential buy 用のスロットを確保してから SELL を品目価値降順に詰める（keep_sells = MARKET_SLOTS − len(pre) − len(buys)）。mest の更新順は SELL→BUY のままで資金ゲート不変",
+   "detect": {
+    "marker": "FIX0009",
+    "require": [
+     "market = pre \\+ sells\\[:keep_sells\\] \\+ buys"
+    ]
+   }
+  },
+  {
+   "id": "FIX0010",
+   "title": "シェッド一括 PICKUP の比較キーが層空間になっていない",
+   "severity": "minor",
+   "status": "open",
+   "found_date": "2026-09-05",
+   "sources": [
+    "gen0026#1"
+   ],
+   "symptom": "float の pri（小麦 0.8 / 肥料 2.87）が層番号(int)と比較され、肥料 PICKUP が意図した層 4 ではなく『層 2 と 3 の間』に入る",
+   "fix": "pri を層番号と同じ空間に揃える（層 + 層内順位の小数）",
+   "detect": null
+  },
+  {
+   "id": "FIX0011",
+   "title": "最終実行ターンの COLLECT_FERTILIZER で換金できない肥料 1 個が残る",
+   "severity": "minor",
+   "status": "applied",
+   "found_date": "2026-09-06",
+   "first_fixed_in": "gen0041",
+   "applied_since": "gen0041",
+   "sources": [
+    "gen0034#2"
+   ],
+   "symptom": "最終ターンに COLLECT_FERTILIZER を出しても売る手番が無い。3 スモークとも 1 個",
+   "fix": "残り時間で換金できない産出行動を最終日の終盤で抑制する",
+   "detect": {
+    "marker": "FIX0011",
+    "require": [
+     "LAST_ACTION_HOUR",
+     "day\\s*>=\\s*FINAL_DAY\\s+and\\s+hour\\s*>=\\s*LAST_ACTION_HOUR"
+    ]
+   }
+  },
+  {
+   "id": "FIX0012",
+   "title": "DAILY_TILE_OPS の説明が厳密でない（コメントのみ）",
+   "severity": "minor",
+   "status": "open",
+   "kind": "doc",
+   "found_date": "2026-09-06",
+   "sources": [
+    "gen0034#3"
+   ],
+   "symptom": "『daily reset から機械的に決まる』は誤り。HARVEST の収穫物は日次リセットされず、FERTILIZE は day+2 まで持続する。集合そのものは正しい",
+   "fix": "コメントを『局所性・期限・再訪コストから決めた集合』に直す",
+   "detect": null
+  },
+  {
+   "id": "FIX0013",
+   "title": "control/targets.json の micro 基準は導出ではなく強帯の実測",
+   "severity": "minor",
+   "status": "open",
+   "kind": "ops",
+   "found_date": "2026-09-06",
+   "sources": [
+    "gen0032#4"
+   ],
+   "symptom": "inplace_share 0.44 / tile_revisit_share 0.02 はゲーム規則からの導出ではなく強帯の実測で、0.44 は帯の最低値(0.316)ではなく多数派の下限",
+   "fix": "targets.json に出所（実測・採り方）を書き、micro_audit の失敗を『規則違反』ではなく『強帯からの乖離』として読む",
+   "detect": null
+  },
+  {
+   "id": "FIX0014",
+   "title": "落とした SELL の架空代金で essential buy を組む（FIX0009 の keep_sells 切り捨てと mest 計上の不整合）",
+   "severity": "major",
+   "status": "applied",
+   "first_fixed_in": "gen0045",
+   "applied_since": "gen0045",
+   "found_date": "2026-09-06",
+   "sources": [
+    "gen0044#1"
+   ],
+   "symptom": "mest には全 SELL 候補の代金を 0.7 掛けで加算するが、市場注文は sells[:keep_sells] で低価値 SELL を後から落とす。落とした SELL の架空代金で資金ゲートを通した BUY_LAND/BUY_ANIMAL/HIRE が実代金不足で無言 no-op しうる。重い購入日（d10-11: 土地+動物+HIRE+種で buys が増え keep_sells が 1-2 に絞られる）で、落とす低価値 SELL の代金合計が RESERVE(400) を超えると土地/動物購入が 1 ターン以上遅延する。1100 戦エラー 0・aggregate は gate.pass なので破滅はしないが seed 単位で取りこぼす",
+   "fix": "keep_sells 確定後に『残す SELL だけ』で mest を再計算して buys を優先順に組み直す。gen0045 実装: 各 buy の見積代金を buy_costs に記録し、市場組立ての最後に、実約定する SELL（sells[:keep]）だけで realized 予算を組み、realized < sum(buy_costs[:nb]) の間 nb を末尾から 1 つずつ落として（枠を SELL に返して）安定させる二段構え。SELL 全数残る通常ターンは realized>=total で buys 不変＝親と挙動一致",
+   "detect": {
+    "marker": "FIX0014",
+    "require": [
+     "sum\\(buy_costs\\[:nb\\]\\)",
+     "buys = buys\\[:nb\\]"
+    ]
+   }
+  },
+  {
+   "id": "FIX0015",
+   "title": "BETA_SELL 品目の収穫解除ゲートが固定 SELL_FLOORS のまま（β 動的売却と非対称）",
+   "severity": "minor",
+   "status": "applied",
+   "first_fixed_in": "gen0045",
+   "applied_since": "gen0045",
+   "found_date": "2026-09-06",
+   "sources": [
+    "gen0044#2"
+   ],
+   "symptom": "gen0044(H2) で WOOL の市場売却は beta_sell_cap の動的 β 判定に移したが、羊→shed の収穫解除ゲート(main.py L626 `pp >= SELL_FLOORS.get(product,0)`, WOOL=120)は固定のまま。β が売却可としても価格が $110-119 帯・または d25-27 の逓減床($27-82)では羊上の在庫が収穫されず d28 の強制収穫へ先送りされ、回復日 burst の一部を取り逃す。主戦場（YARN_STORE 引きの供給不足 WOOL, 価格 $200+）では束縛しないので影響は限定的",
+   "fix": "BETA_SELL 品目（WOOL）の収穫解除条件を固定 SELL_FLOORS でなく `beta_sell_cap(prod, minv.get(prod,I0), day) > 0` に合わせる。非 BETA 品目だけ従来の SELL_FLOORS 床を使う。gen0045 で main.py の家畜収穫解除ゲートを分岐化",
+   "detect": {
+    "marker": "FIX0015",
+    "require": [
+     "if prod in BETA_SELL:",
+     "unlock = pp >= SELL_FLOORS\\.get\\(prod, 0\\)"
+    ]
+   }
+  },
+  {
+   "id": "FIX0016",
+   "title": "beta_sell_cap の int() が負数を floor でなく 0 方向へ切り捨てる境界の 1 個売り",
+   "severity": "minor",
+   "status": "applied",
+   "first_fixed_in": "gen0045",
+   "applied_since": "gen0045",
+   "found_date": "2026-09-06",
+   "sources": [
+    "gen0044#3"
+   ],
+   "symptom": "beta_sell_cap の `return int((I0 + root) - market_inv) + 1`（main.py L461）は floor を意図しているが Python の int() は負数を 0 方向へ切り捨てる。市場在庫が理論上限(I0+root)を 1 未満だけ超えた境界で、正しい cap 0 のところ 1 を返し β·base をわずかに割る 1 個を売る。町消費で境界を往復すると繰り返しうる。額は小さいが正しくない",
+   "fix": "`int(I0 + root) - market_inv + 1` にする（I0=10000 と root は正なので int()=floor() で安全。market_inv は整数）。gen0045 で beta_sell_cap の return を置換",
+   "detect": {
+    "marker": "FIX0016",
+    "require": [
+     "return int\\(I0 \\+ root\\) - market_inv \\+ 1"
+    ],
+    "forbid": [
+     "int\\(\\(I0 \\+ root\\) - market_inv\\) \\+ 1"
+    ]
+   }
+  },
+  {
+   "id": "FIX0017",
+   "title": "β 限界価格は共有市場の soft bound（相手の同時売却で実約定が β·base を割りうる）",
+   "severity": "minor",
+   "status": "open",
+   "found_date": "2026-09-06",
+   "sources": [
+    "gen0044#0"
+   ],
+   "symptom": "beta_sell_cap は自分が在庫を +N-1 する前提だが、エンジンは両者の同一スロット注文を同じ売却前在庫から quote してから両方 commit するため、相手も同品目を売ると在庫は最大 2·(N-1) 増え、実約定価格が β·base を割る。エラーや破滅ではなく β が甘い上限になるだけ。gen0044 の主戦場（供給不足 WOOL）ではそもそも束縛しない",
+   "fix": "観測可能な相手の直近同品目売却（在庫デルタから推定）に応じて headroom を割り引く（IDEA_POLICY『未使用の観測の利用』の合法レバー）。もしくは β を『自分単独の限界価格キャップ』と割り切って実スリッページを別途制限。共有市場の構造上ゼロにはできないので wontfix 化も選択肢",
+   "detect": null
+  },
+  {
+   "id": "FIX0018",
+   "title": "FIX0014 の reconcile が実約定可能性を保証しない（過小評価で正当な購入を落とす・RESERVE 未再確認・数量注文の全落ち）",
+   "severity": "minor",
+   "status": "applied",
+   "found_date": "2026-09-06",
+   "sources": [
+    "gen0045#1"
+   ],
+   "symptom": "gen0045 の market_budget_reconcile（FIX0014）は残る buy を安定させるが精度が粗い。(1) realized は kept SELL を 0.7 掛けで過小評価するので、高値 SELL を残した重い購入日に realized<sum(buy_costs) と誤判定して正当な BUY_LAND/BUY_ANIMAL を落としうる（gen0044 なら約定できた購入を落とす＝過剰修正）。(2) reconcile は realized>=sum(buy_costs) しか見ず RESERVE=400 の残置を再確認しない。(3) nb-=1 は数量注文（BUY_ANIMAL SHEEP 4 等）を丸ごと落とす。エンジンは 1 個ずつ約定するので本来は部分約定（3 頭）が可能。即死級ではなく、額も小さい。gen0044 の raw no-op よりは安全側（枠を SELL に返す）だが最適でない",
+   "fix": "(1) buy_costs の見積単価を数量決定と同じ保守単価（WHEAT は wp+5）に揃える。(2) 各 buy に購入後必要残高（feed=0/land・animal・seed=400/hire=20）を併記して比較。(3) 末尾が数量注文なら全削除の前に RESERVE を残して買える数量へ縮小し、土地・HIRE の atomic order だけ丸ごと落とす。売買サブシステムを触る次世代で対処する",
+   "detect": {
+    "marker": "FIX0018",
+    "require": [
+     "no_trunc = \\(MARKET_SLOTS - len\\(pre\\) - len\\(buys\\)\\) >= len\\(sells\\)",
+     "def _required_reserve\\(o\\):",
+     "buys\\[nb - 1\\] = tail\\[:2\\] \\+ \\[newq\\]"
+    ],
+    "forbid": [
+     "if realized >= sum\\(buy_costs\\[:nb\\]\\):",
+     "return o\\[2\\] \\* prices\\.get\\(o\\[1\\], BASE_VALUE\\.get\\(o\\[1\\], 1\\)\\) \\* 0\\.7"
+    ]
+   },
+   "first_fixed_in": "gen0046",
+   "applied_since": "gen0046"
+  },
+  {
+   "id": "FIX0019",
+   "title": "最終日 d29 に carrot の bonus WATER が発行されず想定収量が 1 個/枚不足",
+   "severity": "minor",
+   "status": "applied",
+   "found_date": "2026-09-07",
+   "first_fixed_in": "gen0050",
+   "applied_since": "gen0050",
+   "sources": [
+    "gen0048#0"
+   ],
+   "symptom": "engine は age 2-3 の WATER 時だけ carrot を増収する（kaggriculture 439-443）が、bonus_water と通常 WATER はどちらも `day < FINAL_DAY(29)` ガードの内側なので d29 は水やり 0 件。d27 植え(d29 age2)=1個・d26 植え(d29 age3)=2個 で、meta の『2-3個/枚』想定を下回る（3 smoke seed とも d29 WATER 0・d27 植え yield_units=1）。carrot 機構の純増は eval で +$313 と実測済みなので下振れではなく forgone upside",
+   "fix": "gen0050 で last_plant_day を 26 に下げ、ripe を `age >= 3 or (day >= FINAL_DAY - 1 and age >= 2)` にして全 carrot を d28 までに収穫。d29 は搬送(DROP+SELL)専用になり d29 carrot 水やり自体が不要になった（遠征を無くす方で解決）。d29 bonus WATER は追加しない",
+   "why": "gen0050 が d28 収穫にしたため d29 carrot 水やりは不要（遠征を無くす方で解決）。d29 に水やりを足すと FIX0020 の最終日清算を悪化させるので、そもそも d29 に生きた carrot を残さない設計にした",
+   "detect": {
+    "marker": "FIX0019",
+    "require": [
+     "day >= FINAL_DAY - 1 and age >= 2"
+    ]
+   }
+  },
+  {
+   "id": "FIX0020",
+   "title": "最終日に収穫した carrot がシェッドへ戻れず未換金・かつ carried 在庫を売却可能量に数える幽霊 SELL",
+   "severity": "major",
+   "status": "applied",
+   "found_date": "2026-09-07",
+   "first_fixed_in": "gen0050",
+   "applied_since": "gen0050",
+   "sources": [
+    "gen0048#1"
+   ],
+   "symptom": "(A) d27 植えの carrot を d29 に収穫した hand が h17-22 を移動に費やしてもシェッドに届かず、SELL は毎ターン無言 no-op。3 smoke seed とも最終 carried.CARROT=6・shed.CARROT=0（最終価格ベースで seed 7≈$240/14≈$210/42≈$366 の未換金）。(B) 市場売却の組み立てが carried 在庫を全量 DROP 可能として SELL 数に加算するため、実行されない SELL 注文が発行される（meta の『carrot SELL 78-82 units』は同一未換金在庫への反復注文の合算＝実約定量ではない）。~$300/試合の forgone upside で carrot 機構最大のレバー",
+   "fix": "(A) gen0050: last_plant_day を 26 に下げ、ripe を `age >= 3 or (day >= FINAL_DAY - 1 and age >= 2)` にして全 carrot を d28 までに収穫。d29 は丸一日 DROP+SELL 搬送に使える（d25 植え age3=収量2, d26 植え age2=収量1）。(B) gen0050: 最終日の carried_item 集計を、その unit の選択済み action が今ターン DROP の時だけに限定（`actions[_ui][0] == \"DROP\"`）。届かない在庫を SELL 数に数えない。FIX0003（今ターン DROP 分を shed 在庫に上乗せ）は温存",
+   "why": "carrot 機構最大のレバー。(A) は遠征を無くし FIX0019（d29 carrot 水やり不足）も同時に不要化した。(B) は幽霊 SELL 注文（無言 no-op）を止める",
+   "detect": {
+    "marker": "FIX0020",
+    "require": [
+     "ripe = age >= 3 or \\(day >= FINAL_DAY - 1 and age >= 2\\)",
+     "actions\\[_ui\\]\\[0\\] == \"DROP\""
+    ]
+   }
+  },
+  {
+   "id": "FIX0021",
+   "title": "milk_flood 連言が自己由来の乳床でも発火する（相手牛>=6 は床の原因を示さない）＋閾値 6 の出所",
+   "severity": "major",
+   "status": "open",
+   "found_date": "2026-09-14",
+   "sources": [
+    "gen0056#0",
+    "gen0056#3"
+   ],
+   "symptom": "gen0056 の milk_flood は相手牛>=6 と乳価<=96・在庫>=I0 の状態量だけを読むため、共有市場を床に落としたのが自分のダンプでも相手が牛を持つだけで True。eval 50seed の親との対応一致は牛を持たない starter/georgy だけ 100/100、kaito 35・rayk 33・自系統 mid 32-35・boatlee_v29 24/100。FLOOD_COW_HERD=6 は自軍ランプ値由来で相手供給と需要の分岐から導いていない",
+   "fix": "相手起因を判定するなら履歴信号（相手牛の yield 減少＝相手 SELL と市場在庫増の同時観測）を足す。そうしないなら述語を「高牛数×glut」と再定義し、全相手で発火する前提で効果を測り直す",
+   "why": "gen0056 系を継ぐ世代（gen0057 以降）がこの機構を継承すると、非発火同一の前提で書いた安全性議論が成り立たない",
+   "detect": null
+  },
+  {
+   "id": "FIX0022",
+   "title": "乳バンクゲート即時解除が作業キューと shed_pressure 経由で他品目に波及する",
+   "severity": "major",
+   "status": "open",
+   "found_date": "2026-09-14",
+   "sources": [
+    "gen0056#1"
+   ],
+   "symptom": "発火時の MILK HARVEST（優先度 2.0）が全品目共通キューで水やり・肥料回収・物流と競合し、shed に移った乳が shed_pressure（>=SHED_DUMP=78 でプレミアム品も全量ダンプ）を押し上げる。gen0056 の自資金 −244.2 [−376.9,−111.5]・強帯自資金 −188.9 [−354.7,−23.2]",
+   "fix": "解除を MILK の実売却可能量と棚容量の範囲に限る、もしくは shed_pressure の計算から解除分の乳を分離する。最小は解除 2 行の撤去（ただしそれは gen0051 に戻るのと同じ）",
+   "why": "主題（自資金と slope の回復）と逆向きの副作用",
+   "detect": null
+  },
+  {
+   "id": "FIX0023",
+   "title": "milk_flood にヒステリシスが無く cow_target が 6↔8 を往復する",
+   "severity": "minor",
+   "status": "open",
+   "found_date": "2026-09-14",
+   "sources": [
+    "gen0056#2"
+   ],
+   "symptom": "毎ターン再評価のため COW last_buy(d18) 内で一時的に False に戻ると 7・8 頭目を購入しうる（boatlee s42 で step338 True→389 False→401 True）。現プールでは発火時点で既に 8 頭なので実害は小",
+   "fix": "初回発火を d18 終了までラッチ（step 0 でリセット）、または cow_target への配線を外す",
+   "why": "早期に洪水する相手が現れたとき (a) が意図どおり効かない",
+   "detect": null
+  },
+  {
+   "id": "FIX0024",
+   "title": "ニンジン置き換えの枚数予算が毎ターン再発行され、上限として機能しない",
+   "severity": "major",
+   "status": "open",
+   "found_date": "2026-09-19",
+   "sources": [
+    "gen0057#0",
+    "gen0057#2"
+   ],
+   "symptom": "carrot_fill_budget() は _agent() ごとに呼ばれ carrot_fill_left はターン内ローカル。既に植えた株・買った種・shed 在庫を控除しないので、収穫〜売却までの 2-3 日は同じ予算が毎ターン再利用される。実測(スモーク3seed): d03 は予算1枚/ターンに対し 3 枚植付。逆に d18 以降は予算 36-57 枚/ターンまで開き空きタイル(12-25)を常に上回る＝機構が発火する窓で条件が binding でない。EXP0057 の『d0-d8 は 0-2 枚＝この時期は小麦のまま』も falsify(d03/05/06 に 6 枚、seed42 は d08-d18 にさらに 12 枚)",
+   "fix": "毎ターン観測できる既コミット分（生存 CARROT 株・CARROT 種・shed/inventories の CARROT）を headroom から差し引いてから枚数を出す。併せて除数 MAX_YIELD['CARROT']=3 はエンジンの max_yield 4 と異なる（無肥料到達値）ので、定数名かコメントを実態に合わせる",
+   "why": "条件付きにしたつもりが実測 inert で、IDEA_POLICY §5 の『常時○○』型と区別が付かない。予算が binding でないので『市場在庫を見る判断が効いた』と書けない",
+   "detect": null
+  },
+  {
+   "id": "FIX0025",
+   "title": "置換枠は d25 で閉じるのに window_end['CARROT'] が d26 を立てる",
+   "severity": "minor",
+   "status": "open",
+   "found_date": "2026-09-19",
+   "sources": [
+    "gen0057#1"
+   ],
+   "symptom": "置換元（last_plant_day 25 の終盤小麦ブロックと day<=LAST_PLANT_DAY の fallback）は d25 で閉じるが、置換時に window_end.setdefault('CARROT', 26) を立てるため、種購入 cap が d25 夕方に『d26 に植えられる』として置換枠ぶんの種を買える。実害は現状小（季節末残種 CARROT は gen0057 3/3/4 個 vs 親 3/4/5 個）",
+   "fix": "置換枠と本来の CARROT 枠で終了日を分けて持つ（最小: 置換で立てる window_end は 25）",
+   "why": "FIX0024 を直して予算が binding になると表に出る",
+   "detect": null
+  },
+  {
+   "id": "FIX0026",
+   "title": "gen0057 の優先度に関するコメントが旧設計のまま（実装は層2へ上げている）",
+   "severity": "minor",
+   "status": "open",
+   "found_date": "2026-09-19",
+   "sources": [
+    "gen0057#3"
+   ],
+   "symptom": "コメントは『優先度は小麦計画のまま（plan[\"plant_pri\"]）＝層は動かさない』と書いているのに、8 行下で put_pri = CROP_PLANS['CARROT']['plant_pri']（2.24＝層2）に上げている。層の変更は c4 の意図（meta.json にも記載）だがコードのコメントだけが旧設計。世代は不変なので永久に残る",
+   "fix": "派生世代でコメントを実装に合わせる（挙動の変更ではない）",
+   "why": "将来の世代が『層は動いていない』と誤読して二重に層を上げる事故の種",
+   "detect": null
+  },
+  {
+   "id": "FIX0027",
+   "title": "market.inventory の値が非整数（None 等）なら算術で例外→そのターン全 PASS",
+   "severity": "minor",
+   "status": "wontfix",
+   "found_date": "2026-09-19",
+   "sources": [
+    "gen0057#4"
+   ],
+   "symptom": "gen0057 の carrot_fill_budget()（I0 - minv.get('CARROT', I0)）に対する Codex の指摘。ただし gen0057 が持ち込んだものではなく、親 gen0051 の beta_sell_cap()（main.py:579 `int(I0+root) - market_inv + 1`）が既に同じ算術をしている＝系譜全体の性質",
+   "fix": "（直さない）数値以外なら予算 0 に落とすガードを各所に入れることは可能",
+   "why": "観測仕様上 market.inventory は整数。系譜のどの世代でも 30 世代・数千試合で一度も発火していない。ガードを撒くと『どこで例外が出たか』が握り潰されて静かな劣化に変わる方が危険。**発火したら最外層の except で全 PASS になるので気づける**（noop_total が跳ねる）",
+   "detect": null
+  },
+  {
+   "id": "FIX0028",
+   "title": "最終日 h21 の COLLECT_FERTILIZER が換金に間に合わず肥料 1 個が死蔵（FIX0011 の穴の残り）",
+   "severity": "minor",
+   "status": "open",
+   "found_date": "2026-09-18",
+   "sources": [
+    "gen0059#1"
+   ],
+   "symptom": "FIX0011 は `day >= FINAL_DAY and hour >= LAST_ACTION_HOUR(22)` の COLLECT だけを止めるが、h21 にシェッドから 1 歩以上離れたタイルで回収すると h22 はシェッドへの MOVE になり DROP の手番が無い。実測: gen0059 の 3 スモークは farmer が `{'FERTILIZER': 1}` を抱えて終局（最終 action は ['EAST']）。**親 gen0051 も同じ 1 個を hand（index 6 / 1）が抱えて終局しているので gen0059 の回帰ではなく系譜の性質**（Codex は farmer スロットだけを見て『親は空』と報告したが、hand を見ると同量が死蔵している）。損失は肥料 1 個ぶんで小さい",
+   "fix": "最終日は『回収してからシェッドへ戻って DROP できるか』を距離で判定して todo を出す: `shed_d = min(|x-sx|+|y-sy| for SHED_TILES)` として `hour + shed_d + 1 <= LAST_ACTION_HOUR` が偽なら COLLECT を出さない（FINAL_DAY のみ。非最終日の挙動は変えない）",
+   "why": "gen0059 の機構（farmer のゾーン参加）とは無関係な親の終盤清算の穴なので、ここで直すと効果の帰属が割れる（gen0057 の反省）。損失も肥料 1 個ぶんで小さい。次に終盤清算を触る世代でまとめて直す ／ [2026-09-20] 実装と測定は済んでいる（gen0061・資金効果ゼロ）。**直す価値は資金ではなく終盤清算の正確さ**なので、次に終盤を触る世代へ同梱してよい（単独で測る価値はもう無い）",
+   "detect": {
+    "marker": "FIX0028",
+    "require": [
+     "hour\\s*>=\\s*LAST_ACTION_HOUR\\s*-\\s*min\\("
+    ],
+    "note": "最終日の COLLECT_FERTILIZER の締切を、シェッドまでの帰り道 shed_d のぶん前倒ししたか（shed_d=0 で FIX0011 と一致＝FIX0011 の一般化）"
+   },
+   "exp": "knowledge/experiments/EXP0061_final-day-and-pickup-reachability.md",
+   "attempts": [
+    {
+     "gen": "gen0061",
+     "date": "2026-09-19",
+     "form": "台帳の案どおり。`hour + shed_d + 1 > LAST_ACTION_HOUR` を移項した `hour >= LAST_ACTION_HOUR - shed_d` の形で書いたので FIX0011 の require 正規表現も通る（FIX0028 は FIX0011 を包含する）。**資金効果は 0**: FIX0029 と合わせた版と親 gen0058 の行動列を 3 シードで突き合わせると、差は d29 h19 以降の『futile MOVE → PASS』だけで最終資金は 1 ドルも動かない（EXP0061 §(a)）。",
+     "status": "measured_zero",
+     "eval": "records/eval_gen0061.json（baseline records/eval_gen0058.json・50 シード・13 体 e3f96592）",
+     "result": "**資金効果ゼロが実測で確定**（EXP0061 §(a): FIX0028+FIX0029 だけの版は親 gen0058 と 3/3 シードで最終資金が完全同値。差分はすべて『futile な MOVE → PASS』）。gen0061 自体も `gate.pass=False`（マージン +$32.4 [−36.8, +101.7]）で昇格しなかった",
+     "note": "2026-09-20: gen0061 が非昇格のため王者系統（gen0060 → gen0062）には入っていない。台帳の applied は『王者系統に入っている』意味なので open に戻した（`applied_since: gen0061` は兄弟枝を指していた）"
+    }
+   ]
+  },
+  {
+   "id": "FIX0029",
+   "title": "到達可能性ゲートの FINAL_DAY carve-out が終端規則と逆向き（最終日は LAST_ACTION_HOUR=22 で切るべき）",
+   "severity": "minor",
+   "status": "open",
+   "found_date": "2026-09-18",
+   "sources": [
+    "gen0058#1"
+   ],
+   "symptom": "gen0058 のゲートは `day < FINAL_DAY` で最終日を全面除外している（`visit_ok` の carve-out を踏襲）。しかし最終日は『届かなくても運ぶ』価値があるのではなく、シーズン終了後は位置も在庫も持ち越せないので**届かない移動の価値は通常日以上にゼロ**。しかも最終行動は h22（`LAST_ACTION_HOUR`。エンジンの DONE 判定は kaggriculture.py:958）。実測: seed 42 の d29 h22 に肥料を持つ hand が [6,3] からシェッドへ WEST を出すが DROP の手番が残らず死蔵",
+   "fix": "最終日は残り時間を h22 で切る: `end_hour = LAST_ACTION_HOUR if day >= FINAL_DAY else HOURS_PER_DAY - 1` として `pri not in LOSS_PRIS and d > end_hour - hour` なら除外（FINAL_DAY の全面除外をやめる）。FIX0028（最終日 h21 の COLLECT_FERTILIZER）と同じ根（最終日の到達可能性）なので同時に直すのが安い",
+   "why": "最終日 1 日ぶんの終盤清算なので効果量は小さいが、`FIX0003` / `FIX0020` が絡む箇所なので終盤清算を触る世代でまとめて扱う ／ [2026-09-20] 実装と測定は済んでいる（gen0061・資金効果ゼロ）。**直す価値は資金ではなく終盤清算の正確さ**なので、次に終盤を触る世代へ同梱してよい（単独で測る価値はもう無い）",
+   "detect": {
+    "marker": "FIX0029",
+    "require": [
+     "def\\s+action_hours_left",
+     "pri\\s+not\\s+in\\s+LOSS_PRIS\\s+and\\s+d\\s*\\+\\s*1\\s*>\\s*hours_left"
+    ],
+    "note": "到達可能性ゲートの FINAL_DAY 全面除外をやめ、残り予算を 1 箇所（action_hours_left）で決めて最終日だけ h22 で切っているか"
+   },
+   "exp": "knowledge/experiments/EXP0061_final-day-and-pickup-reachability.md",
+   "engine_note": "最終の有効行動が d29 h22 であることを実測で確定した: リプレイ index 719(d29 h23) にも行動は記録されるが interpreter 冒頭の `if env.done: return state` で一度も解釈されない（DONE は step 718 の処理直後に立つ）。",
+   "attempts": [
+    {
+     "gen": "gen0061",
+     "date": "2026-09-19",
+     "form": "台帳の案どおり。ただし**ゲート本体だけでなく `_owner_can_come`（所有者の保護）と FEED/CARE の最寄り判定 `dmin` の 3 箇所を同時に**同じ予算値へ揃えた。ゲートだけ狭めると、gen0058 が塞いだ『誰も来ない穴』（保護の対象集合と最寄り判定の対象集合のズレ）が最終日に再発する。**資金効果は 0**（FIX0028 と同じ実測。EXP0061 §(a)）。台帳の `why` にあった『効果量は小さいが確実』は誤りで、小さいのではなくゼロだった。",
+     "status": "measured_zero",
+     "eval": "records/eval_gen0061.json（baseline records/eval_gen0058.json・50 シード・13 体 e3f96592）",
+     "result": "**資金効果ゼロが実測で確定**（EXP0061 §(a): FIX0028+FIX0029 だけの版は親 gen0058 と 3/3 シードで最終資金が完全同値。差分はすべて『futile な MOVE → PASS』）。gen0061 自体も `gate.pass=False`（マージン +$32.4 [−36.8, +101.7]）で昇格しなかった",
+     "note": "2026-09-20: gen0061 が非昇格のため王者系統（gen0060 → gen0062）には入っていない。台帳の applied は『王者系統に入っている』意味なので open に戻した（`applied_since: gen0061` は兄弟枝を指していた）"
+    }
+   ]
+  },
+  {
+   "id": "FIX0030",
+   "title": "枯死防止 WATER(pri 1.0) に最寄り担当制が無く、遠い所有者の claim が到達可能な hand を弾く",
+   "severity": "major",
+   "status": "applied",
+   "found_date": "2026-09-18",
+   "sources": [
+    "gen0058#2"
+   ],
+   "symptom": "FEED/CARE には最寄り担当制（`dmin`。gen0026-3 / FIX0005 / gen0058 の到達可能性フィルタ）があるが、**枯死防止 WATER には無い**。gen0058 の `LOSS_PRIS` carve-out は到達可能性ゲートも免除するので、遠いゾーン所有者が pri 1.0 の WATER を選んで移動中に `claimed.add(...)` すると、到達可能な別の hand がその todo を候補から失う。エンジンは `consecutive_unwatered >= 2` で即 WEED 化する（kaggriculture.py:777）＝ 1 ターンの取り違えでタイルを失う。**FEED/CARE と WATER の非対称**そのものが欠陥",
+   "fix": "枯死防止 WATER にも到達可能な最寄り担当制を入れる（FEED/CARE の `dmin` ブロックの対象 op に WATER の pri 1.0 を足す）。もしくは carve-out を `pri == 0.0 and op[0] == 'FEED'` に限定する",
+   "why": "gen0058 の 3 スモークと 50 シード 1,300 戦では unfed/uncared/noop が全 0 で発火を観測していない（critical-three は**枯死を直接見ていない**ので検出できていない可能性が残る）。まず `new_weed_from_unwatered` 相当の指標を足して発火の有無を測るのが順序（HANDOFF の人への提案）",
+   "detect": {
+    "marker": "FIX0030",
+    "require": [
+     "not\\s*\\(\\s*pri\\s*==\\s*0\\.0\\s+and\\s+op\\[0\\]\\s*==\\s*\"FEED\"\\s*\\)"
+    ],
+    "note": "到達可能性ゲートの carve-out を緊急 FEED(pri 0.0) だけに狭めたか（枯死防止 WATER にゲートを効かせる）"
+   },
+   "first_fixed_in": "gen0060",
+   "applied_since": "gen0060",
+   "exp": "knowledge/experiments/EXP0060_backlog-release.md",
+   "fix_applied": "台帳の 2 案のうち後者（carve-out を `pri == 0.0 and op[0] == 'FEED'` に限定）を採用。前者（WATER を dmin の対象に足す）は、既に別行動を選んだユニットでも dmin を作るという dmin の性質のせいで『誰も来ない穴』を別の形で残す（Codex gen0060#P1-2 が具体的経路を提示）"
+  },
+  {
+   "id": "FIX0031",
+   "title": "ZWHEAT / ZFERT の一括 PICKUP が到達可能性ゲートを迂回し、zone_unfed / zone_fert / fert_soon がゲート前の todo を数える",
+   "severity": "minor",
+   "status": "open",
+   "found_date": "2026-09-18",
+   "sources": [
+    "gen0058#3"
+   ],
+   "symptom": "`ZWHEAT` / `ZFERT` の一括 PICKUP 候補は `eval_todos` の**外**で `best_key` と直接比較されるので、gen0058 の到達可能性ゲートを通らない。加えて `zone_unfed` / `zone_fert` / `fert_soon` はゲート前の全 todo を数えるので、『後で到達不能として落ちる FERTILIZE のために肥料を売らない』『今日使えない小麦・肥料を取りにシェッドへ歩く』という非対称が残る。実測: gen0058 の真の h23 残存 MOVE 7/6/10 のうち 6/6/9 がシェッド方向",
+   "fix": "最小: ZWHEAT / ZFERT 候補にも残り時間ガード（`d + 1 <= HOURS_PER_DAY - hour`）を付ける。将来: `zone_unfed` / `zone_fert` / `fert_soon` を「今日到達可能な対象」と「将来予約」に分ける",
+   "why": "残存する無駄足は 3 seed で 7-10 h まで落ちている（親は 147-185 h）ので効果量は小さい。ただし『ゲートを迂回する経路が残っている』のは機構説明の正確さの問題でもある ／ [2026-09-19] gen0061 が最小案を実装し 50 シード評価に投入した（status は open のまま。EXP0061 §(b)）。 ／ [2026-09-20] **50 シードで効果量の上限 +$102/試合 が確定**（検出不能だが CI が狭い）。status は open のままにするが、**単独世代として測り直す価値はもう無い**。同じ場所を触る世代に同梱するのは安い。EXP0061",
+   "detect": null,
+   "attempts": [
+    {
+     "gen": "gen0061",
+     "date": "2026-09-19",
+     "form": "台帳の最小案（ZWHEAT / ZFERT 候補に `d + 1 <= action_hours_left(day, hour)` を課す。落ちたら従来どおり eval_todos(False) へ回す）",
+     "status": "measured_bounded",
+     "smoke": "gen0058 との 3 シード（7/42/123）。**親 vs 親の mirror を対照に取った対応付きスモークで 3/3 とも負**（−979 / −757 / −1,310・平均 −$1,015）。スモーク 3 シードは方向判断に使えない（要 24）ので保留だが、50 シード評価の主要な確認対象。",
+     "eval": "records/eval_gen0061.json（baseline records/eval_gen0058.json・50 シード・投入済み）",
+     "caution": "**評価結果を見るまで status を applied にしない。** 悪化が確認されたら、この最小案は『wontfix / 別案へ』として閉じること（無駄な行動を消すと fallback 先が元より悪いことがある、が今夜 3 回目の形）。",
+     "result": "50 シード（13 体 e3f96592・baseline gen0058）: **対応付きマージン +$32.4 [−36.8, +101.7]・自資金 −$34.6 [−154.9, +85.6]・強帯マージン +$47.3 [−39.9, +134.6]**。`gate.pass=False`（rating_delta +6.9 [−41.1, +54.9]）。**符号は判定不能だが CI 幅が ±$70 と異常に狭い**（変更が発火する場面が稀で、ほとんどの対が同一のため）＝ **効果量の上限が +$102/試合 と確定した**。典型的な昇格効果 $1.7-3.1k の 1/20 以下。3 シードの対応付きスモークが 3/3 負（平均 −$1,015）だったのも誤り＝スモークで方向を語れない実例",
+     "date_measured": "2026-09-20"
+    }
+   ]
+  },
+  {
+   "id": "FIX0032",
+   "severity": "minor",
+   "status": "open",
+   "found_date": "2026-09-19",
+   "title": "バックログ解放に履歴が無く、ターンをまたいだ目的地の振動が起きうる",
+   "sources": [
+    "gen0060#5"
+   ],
+   "symptom": "`zone_doable` と `claimed` は毎ターン作り直され、移動中のユニットがどの todo へ向かっていたかを覚えていない。ターン T で解放された他ゾーンの todo が、T+1 に所有者の位置・残仕事・残り時間が変わって保護集合へ戻ると、向かっていた非所有者は別の目的地へ切り替える（再解放されればまた戻る）。Codex 実測（seed 123・gen0058 vs gen0060）: 作業を挟まない『直前の MOVE と正反対の MOVE』が 17 → 44 回。`EAST → EAST → WEST → EAST` の形が複数日で出る。seed 123 の tile_revisit_share 0.0204（基準 0.02・親 0.0147）の一部はこれ（残りは出張の往復で正常）",
+   "fix": "解放の履歴をターンをまたいで持つ（例: 解放した todo は同一ユニットが向かっている間ラッチする）。ただし**世代のエージェントは状態を持たない設計**なので、観測から再導出できる形（例: 『自分の現在位置が自ゾーン外なら、その方向の解放 todo を優先する』）でないと入れられない",
+   "why": "生産行動 +146/+175・PASS 大幅減・critical-three 0 に対して逆方向 MOVE の増加は約 27 回なので、correctness の問題ではなく性能上の観測。**50 シード評価の結果を見てから**対処を決める（効果が出ているなら振動は許容コスト）",
+   "detect": null
+  },
+  {
+   "id": "FIX0033",
+   "severity": "minor",
+   "status": "open",
+   "found_date": "2026-09-19",
+   "title": "gen0060 の `_zone_backlog_doable` 前後のコメントが旧実装のまま（実装 ≠ 説明の 6 例目）",
+   "sources": [
+    "gen0060#6"
+   ],
+   "symptom": "コメントに「最近傍順」「VISIT_LAYER は入れない」「先頭が必ず保護される」が残っているが、実装は順位順（`_rank`）で VISIT_LAYER も含み、`planned_seed` / `claimed` の動的変化は追わないので保証は『ターン開始時点の静的近似』。挙動には影響しない",
+   "fix": "派生世代でコメントを実装に合わせる（gen0060 自身では直さない: 昇格前レビュー済みの SHA を固定するため）",
+   "why": "レビュー後に main.py を変えると SHA が変わりレビューし直しになる。Codex 自身が deferred を推奨した。**meta.json と EXP0060 の説明は正しい方に直してある**",
+   "detect": null
+  },
+  {
+   "id": "FIX0034",
+   "severity": "minor",
+   "status": "open",
+   "found_date": "2026-09-20",
+   "title": "farmer の自ゾーン外の仕事（SHEDOP / 他ゾーンの PLACE）がバックログ予算に計上されず、farmer ゾーンが過剰保護される",
+   "sources": [
+    "gen0062#0"
+   ],
+   "symptom": "`_zone_backlog_doable()` は各ゾーンについて『所有者は今日の残り時間を自ゾーンだけに使う』と仮定して巡回予算を組む。gen0062 で farmer が区画を持つと、farmer は同時に **SHEDOP（動物の PICKUP）と自ゾーン外の PLACE** を `farmer_shed` 例外で取り続ける（しかも crit=1 ＝ 高優先）のに、その時間が farmer ゾーンの予算から引かれない。結果、farmer ゾーンの `zone_doable` が過大になり、本当は farmer が今日到達しない todo まで `_owner_can_come` が保護して、暇な hand に解放されない。**規模の実測（gen0062 vs starter・seed 7/42/123・farmer の 719 unit-hour の行動内訳）: PICKUP+PLACE+DROP は 25-29 回（PLACE 12 = 購入した動物 12 頭ぶんで d0-d8 に集中）＝ 1 日あたり約 1 時間。ただしこれは実行回数で、目的地への MOVE は含まない（Codex round2 の留保）。**",
+   "fix": "最小: farmer ゾーンの巡回に、SHEDOP（最寄りシェッドタイルへ相対化）と自ゾーン外 PLACE を候補として足し、予算を消費させる。別案（Codex の初案・**採らなかった**）: `_owner_can_come` で `owner == farmer_zone` なら常に False を返して farmer ゾーンの保護を全面的に外す ——これは gen0059 とも gen0060 とも違う第 3 の割当方式なので、単独でアブレーションすること",
+   "why": "`_zone_backlog_doable` の近似（『所有者は残り時間を自ゾーンだけに使う』）自体は親 gen0060 から在り、hands も自ゾーン外の救済 FEED(h12+) / CARE(h18+) / FERTILIZE / ZWHEAT・ZFERT のシェッド往復をするので同じ過大評価を持つ。farmer で新しいのは**適用範囲が広がったこと**であって別種の安全性違反ではない。貪欲巡回が移動時間を過大に見積もる誤差は逆向き（解放しすぎ側）なので、正味の向きも自明でない。**gen0062 では直さない**: この世代の目的は『2 機構を合流させたときの効果』を 50 シードで測ることで、そこに第 3 の変更を混ぜると効果の帰属が割れる（gen0057 の反省）。Codex も round2 で minor への降格に同意した",
+   "detect": null
+  },
+  {
+   "id": "FIX0035",
+   "severity": "minor",
+   "status": "open",
+   "found_date": "2026-09-20",
+   "title": "既に行動を確定した unit が FEED/CARE の `dmin` を作り、まだ確定していない unit を弾く（系譜全体）",
+   "sources": [
+    "gen0062#1"
+   ],
+   "symptom": "`for ui, (ux, uy) in enumerate(units)` は index 順に行動を確定していくが、FEED/CARE の最寄り判定 `ds` は**毎回すべての unit**を候補にする。よって `i < ui` の（＝もう別の todo に確定した）unit が `dmin` を作り、その todo に到達できる後続 unit が『自分は最寄りでない』で降りる。**gen0051 から在る系譜全体の性質**で、gen0060 のレビューでも同じ性質を根拠に FIX0030 の dmin 案が撤回されている。gen0062 で新しいのは、farmer が自分の区画では `owner == zid` により `_owner_can_come` が False を返して `ds` に残るようになったこと ＝ **対象が farmer ゾーンにも広がった**点だけ",
+   "fix": "最小: `ds` を作るループで `if i < _ui: continue`（既に確定した unit を候補から外す）。同じ todo を選んだ先行 unit は `claimed` で既に除外されているので、未 claim の todo について確定済み unit を『実際に claim できる候補』に数える理由はない",
+   "why": "**gen0062 では直さない**: 系譜全体の FEED/CARE 割当を変えるので、親 gen0060 の評価済み挙動も変わり、合流の効果測定が汚染される。gen0062 のスモーク 3 seed では unfed / uncared / noop とも 0 で合流固有の実害は観測されていない。Codex も round2 で『別世代で単独評価』に同意した。**単独世代として測る価値はある**（`_owner_can_come` を緩める系統と同じ『所有権で弾いている』の一種）",
+   "detect": null
+  },
+  {
+   "id": "FIX0036",
+   "severity": "minor",
+   "status": "open",
+   "found_date": "2026-09-20",
+   "title": "シェッド容量超過時に携行中の動物が EOD で破棄されうる（『今日着けない PLACE を選ばない損失はゼロ』の反例）",
+   "sources": [
+    "gen0062#2"
+   ],
+   "symptom": "gen0058 の到達可能性ゲートは『携行中の動物は日の終わりにシェッドへ戻るので、今日着けない PLACE を今日選ばない損失はゼロ』を根拠にしている。だがエンジンの `_drop_inventories_to_shed` は `room = max(0, capacity - current)` / `take = min(n, room)` のあと `del inv[item]` で**入り切らない分を捨てる**（README: `Anything that doesn't fit is discarded — overflow is lost`）。シェッドが満杯の日に動物を携行したまま EOD を迎えると動物が消え、購入期限後なら 12 頭に戻せない。実測（gen0062 スモーク 3 seed）: `shed + carried` の最大は 120 / 115 / 105 で容量 100 を超える瞬間はあるが、**EOD に動物を携行していた日は 0 件**・3 seed とも d8 に 12 頭到達 ＝ **未発火**",
+   "fix": "まず invariant として監視する（各日 h23 に `carried_animals > 0 かつ shed_total + inventories_total > shed_capacity` が立たないか）。発火したら、携行動物がある日は EOD 前に `shedCapacity - shed_total >= inventories_total` を保証する（売却枠の優先など）。**ゲートの carve-out をいじっても直らない**（届かないパスチャへ歩くだけで容量問題は残る）",
+   "why": "設計の根拠そのものに対する反例なので、発火しなくても記録が要る。3 seed では未発火＝『通常は翌朝シェッドへ戻るが、容量超過時は破棄されうる』までしか言えない",
+   "detect": null
+  },
+  {
+   "id": "FIX0037",
+   "severity": "minor",
+   "status": "applied",
+   "found_date": "2026-09-20",
+   "title": "[ops] `ops/eval_queue.py submit` が同じ秒に 2 回呼ばれるとジョブファイルを黙って上書きする",
+   "sources": [
+    "gen0062#3"
+   ],
+   "symptom": "ジョブ ID は `ops/eval_queue.py:135` の `f\"{utcnow:%Y%m%d_%H%M%S}_{args.gen}.json\"` だけで決まる。同じ世代について同じ秒に 2 本積むと 2 本目が 1 本目を**上書きし、両方とも `QUEUED` と表示される**。2026-09-20 c3 で実際に起きた（gen0062 の本命 = 新王者 gen0060 比の 1 本目が消え、2 本目の gen0058 比だけが残った。出力の `→ records/...` が 2 行とも同じジョブファイルを指していたことで気づいた）。c3 は消えたジョブを手で積み直して復旧した",
+   "fix": "最小: 衝突したら連番の suffix を付ける（`..._gen0062.json` が在れば `..._gen0062-2.json`）。または out のパスを ID に混ぜる。どちらでも**黙って上書きしない**ことが要件",
+   "why": "サイクルは『積んで終える』運用なので、消えたことに気づく機会が次サイクルの読みだけになる。ハーネスの変更なので Codex レビュー必須（今夜の Track 3 と同じ扱い）。**実行中の `ops/overnight.sh` は編集しない**",
+   "detect": null,
+   "kind": "ops",
+   "fix_applied": "`submit` のジョブ ID が衝突したら連番 suffix `_NN` を足し、`O_EXCL`（`open(\"x\")`）で排他的に作る（同時 submit でも片方しか勝たない）。suffix を `_` にしたのは `.`(0x2E) < `_`(0x5F) で名前順 ＝ 積んだ順（FIFO）が保たれるため。ゼロ詰め `_{n:02d}` で 10 本目以降も順序が崩れない。あわせて **同じ `--out` を指す pending/running のジョブがあれば submit を NO-GO で拒む**（ジョブファイルを分けても、既定 out が `records/eval_<gen>.json` なので結果の方が上書きされる。Codex P1-2）",
+   "first_fixed_in": "ops/eval_queue.py",
+   "applied_since": "2026-09-20",
+   "test": "ops/test_eval_queue.py（`.venv/bin/python ops/test_eval_queue.py`。22 ケース）",
+   "review": "Codex gpt-5.6-sol/high・2 ラウンド（2026-09-20）。P1 を計 9 件受けて全件修正"
+  },
+  {
+   "id": "FIX0038",
+   "kind": "ops",
+   "severity": "major",
+   "status": "applied",
+   "found_date": "2026-09-20",
+   "title": "[ops] kill された評価ジョブが `running` のまま残り、`ops/eval_queue.py next` が二度と拾わない",
+   "symptom": "`cmd_run` は正常終了時にしか done/failed を書かないので、ジョブが kill されると `status: running` のまま残り `next` が飛ばし続ける。2026-09-19 に実機がバッテリー切れでハイバネート → 起床後 `wait_eval` が `EVAL_TIMEOUT` 超過で kill → gen0060 の eval が滞留し、翌朝 WRAPUP が手でステータスを戻して復旧した。**気づく機会が人の目視しかない**",
+   "fix": "`run` が自分の PID（`pid`）と評価子の PID（`eval_pid`）と出力ファイルの実行前 stat（`out_before`）をジョブに記録し、`next` が『running だが PID がすべて死んでいて実行ロックも空いている』ジョブを回収する。回収は **`out_before` と比べて出力が今回の実行で書かれたと確信できるときだけ `done`**、それ以外は `pending` に戻して積み直す（`attempts` に履歴）。実行権は `<job>.lock` の flock で原子的に取り、その fd を評価子に継承させる（runner だけ死んでも評価子が生きていればロックが残る）",
+   "why": "**判定不能なものは「生きている」側に倒す**のが要件（二重起動で同じ `--out` に 2 プロセスが書くと、壊れた JSON か混ざった結果が昇格判定に入る）。旧コードが書いた `pid` 無しの running は回収しない。`harness/evaluate.py:518` は全試合が終わってから out を一度だけ書くので、**前回の評価 JSON が残っていると『出力が揃っている』ように見える** ——これを done に畳むと古い評価で昇格判定をする（Codex P1-1）。`out_before` の stat 比較はそこを塞ぐためのもの",
+   "detect": null,
+   "first_fixed_in": "ops/eval_queue.py",
+   "applied_since": "2026-09-20",
+   "test": "ops/test_eval_queue.py（22 ケース。runner を SIGKILL して評価子だけ生かす経路も含む）",
+   "review": "Codex gpt-5.6-sol/high・2 ラウンド（2026-09-20）",
+   "origin": "state/STATUS.md 2026-09-20 cycle1（バッテリー切れの解剖）／ 2026-09-19 の実害"
+  },
+  {
+   "id": "FIX0039",
+   "severity": "minor",
+   "status": "applied",
+   "found_date": "2026-09-20",
+   "title": "ALWAYS_SELL の TOMATO 即売りは根拠のコメントが誤っており、トマトを産む世代が来たら glut を踏む",
+   "symptom": "`agents/gen00NN/main.py` の `ALWAYS_SELL = [FERTILIZER, EGG, CARROT, TOMATO]` のコメントは「EGG/CARROT/TOMATO は T が大きく glut になりにくい」と書いているが、実際の `T` は EGG 332・CARROT 450 に対し **TOMATO 200**（WHEAT 400 の半分。プレミアム品を除けば最小）。above 側は `sqrt`・`above_target 0.60` なので、I0 を 200 個超えた時点で $24、400 個で $9 まで落ちる。**現行世代はトマトを 1 個も産まないので未発火**",
+   "fix": "トマトを植える世代を作るときは、`ALWAYS_SELL` から TOMATO を外し、メロン/乳と同じ「町の吸収レート（Pizza 6 個/日 + town center 1 個/日、Farmers Market が引かれれば +6）以下で流す」トリクル売りに回す。コメントの数値も engine の `MARKET_PARAMS` に合わせて直す",
+   "why": "80 個（SE 10 枚・肥料あり）を 1 日で投げると在庫が I0 を越えて単価が $66-72 → $24 帯に落ち、設計上の収益 $5.4k が半減する。発火条件が『将来トマトを植えること』なので、世代が不変である以上この台帳にしか残せない",
+   "detect": {
+    "marker": "FIX0039",
+    "require": [
+     "ALWAYS_SELL\\s*=\\s*\\[\"FERTILIZER\",\\s*\"EGG\",\\s*\"CARROT\"\\]",
+     "\"TOMATO\":\\s*1\\s*\\+\\s*6\\s*\\*\\s*t"
+    ]
+   },
+   "origin": "knowledge/analysis/2026-09-20_tomato-track2b.md §5（Track 2b の設計可否調査の副産物）",
+   "applied_in": "gen0063",
+   "applied_note": "ALWAYS_SELL から TOMATO を外し SELL_FLOORS へ移動。併せて premium_absorb に TOMATO: 1 + 6*t（engine 由来）を追加（Codex gen0063#round1-P1-3）"
+  },
+  {
+   "id": "FIX0040",
+   "severity": "minor",
+   "status": "open",
+   "found_date": "2026-09-20",
+   "title": "gen0063 のトマト差し替えゲート (c-2) が生育中の小麦を収穫時期と無関係に 4 個ずつ数える",
+   "symptom": "`agents/gen0063/main.py` の飼料ゲートは (c-1)「次の小麦が穫れるまでは手元在庫だけで賄える」＋(c-2)「手元＋`wheat_live * 4` で小麦 1 回転（4 日）ぶんを賄える」の 2 条件。(c-2) は株の age を見ないので、**age3 が 1 枚と age0 が 8 枚**のような盤面で『4 日ぶんある』と判定する（実際に穫れるのは翌日の 4 個だけ）。vs starter 3 シードのうち 2 シードで `BUY_PRODUCT WHEAT` が親比 +12 個",
+   "fix": "最小: 小麦を成熟日（`planted_day + 4`）別に積み、bridge の各日末残高が非負になることを確認する。安全側に倒すだけなら (c-2) を `_stock >= planned_total * bridge`（手元在庫のみ）にするが、その場合ゲートがほぼ常に閉じて機構が発火しなくなる可能性がある（c6 で窓を狭めた版が 3/3 シード発火 0 になった前例）",
+   "why": "ゲートの文言（『賄える』）が保証になっていない。飼料の最終的な担保は既存の買い足し（`stock < planned_total`）と評価側の `unfed_days = 0` で、実測でも unfed は 0 のまま。ただし買い戻しは $25-45/個かかるので、差し替えの純益をその分削る",
+   "detect": null,
+   "sources": [
+    "gen0063#0"
+   ],
+   "origin": "Codex レビュー round2 P1-1 / round3 P1（gpt-5.6-sol / high・2026-09-20）"
+  },
+  {
+   "id": "FIX0041",
+   "severity": "minor",
+   "status": "wontfix",
+   "found_date": "2026-09-20",
+   "title": "gen0063 の TOMATO_SEED_BUFFER = 1 は構造由来ではなく実測由来の定数",
+   "symptom": "トマト種の JIT バッファ `TOMATO_SEED_BUFFER = 1` はゲーム規則から導けない。IDEA_POLICY は『単一パラメータの調整』を禁止側に置いている",
+   "fix": "wontfix。sweep はしていない（2 と 1 の 2 点だけを比べ、植付枚数が 3 枚で同じまま死蔵だけが $250 → $50 に減る方を採った）。役割は『買った種は売れないので、使う直前にだけ買う』という JIT 在庫で、勝率を当てにいった閾値ではない。将来トマトの植付枚数が増える設計に変えるなら、その世代で候補枚数から導く形に置き換える",
+   "why": "定数の出所を台帳に残しておかないと、後の世代が『既に検証された定数』と誤解して sweep を始める",
+   "detect": null,
+   "sources": [
+    "gen0063#7"
+   ],
+   "origin": "Codex レビュー round1 P2-2（gpt-5.6-sol / high・2026-09-20）"
+  }
+ ]
+}

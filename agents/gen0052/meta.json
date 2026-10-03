@@ -1,0 +1,32 @@
+{
+ "gen": "gen0052",
+ "parent": "gen0050",
+ "exp": "EXP0052",
+ "date": "2026-09-08",
+ "hypothesis": "牛の限界頭数を乳店の早出しで条件付ければ（最初の2軒に乳店が無い町=最頻の町で7・8頭目を切る）、床値ダンプ ~64個/試合の回避＋牛2頭ぶんの資本$800・飼料・CARE/FEEDのhand-hourを解放してscheduler がイチゴ care/収穫へ再配分でき、乳が$4/個の町での無価値な牛を止められる。乳が高値の町(milk_ok=True)では8頭のまま。上位の乳店0/1/2+で牛6/8/9の型に一致（ここは6/8のみ）。",
+ "source": "knowledge/analysis/2026-09-08_milk-value-is-store-conditional.md（王者系譜6seedの実測: 乳の実現単価は乳店の早さで$4〜$197と~50倍振れ、我々は乳258個を固定生産して床値で148-246個捨てていた）。跳躍候補C（knowledge/scout/2026-09-07_breakthrough-candidates-from-shared.md §2-C）。IDEA_POLICY §2（未使用の観測=乳店軒数をcow_targetに使う）。gap_LATEST.md §4 問い#2(乳-$12,547)・#5(床値148個)。",
+ "changes": [
+  "cow_target(day) → cow_target(day, milk_ok=True): 最終returnを `8 if milk_ok else 6`。d0-7の返り値(0→6)は不変。milk_ok=False(最初の2軒に乳店なし)の時だけ d8+ を8→6に抑える＝限界価値が最も低い7・8頭目だけ削る。",
+  "MILK_LOOKAHEAD=2 定数を追加（MILK_SHOPS の直下）。shops は開示順(append)なので shops[:2] は d6 以降不変＝ステートレスかつ安定な信号。",
+  "計画関数ヘッダ(se_owned の直後)に milk_ok = any(s in MILK_SHOPS for s in shops[:MILK_LOOKAHEAD]) を計算。",
+  "cow_target の呼び出し2箇所に milk_ok を渡す: (1) パスチャ建設 want_built の feed 計画(line ~800)、(2) 動物購入の deficit(line ~1390)。room は COW_MAX(=8) 定数のままなので上限は変えない（tgt=cow_target が binding）。",
+  "sheep_target/expand/carrot/市場売却/その他の経済ロジックは1行も触っていない。milk_ok=True の町では gen0048 とバイト同一。"
+ ],
+ "status": "evaluated-non-promote-measure-queued",
+ "smoke": "vs starter seed 7/14/42: エラー0・両者DONE。final_money[0]=[143708/161585/118814]。★発火確認: seed14 は vs starter で最初の2軒に乳店あり(milk_ok=True)→8頭維持→gen0050とバイト同一($161585一致)。seed7/42 は milk_ok=False→6頭に打ち止め→gen0050と差(gen0050=[151318/_/130508]、gen0052 が -$7,610/-$11,694)。★重要: vs starter は milk 市場が飽和しない唯一の相手なので、牛を削ると純粋に乳収入を失う=本変更の最悪ケース(shared-saturated な強帯でのみ床値ダンプ回避が効く)。スモークで方向判断しない(検出限界)。micro_audit --assert(seed 7/14/42): critical-three(noop_total/unfed_days/uncared_days)全て0。他 micro NG(inplace_share/last_water_hour/melon_yield/strawberry_yield/tile_util/wheat_yield)は親 gen0050 と同一集合=新規回帰0(seed7 は tile_revisit_share が OK に改善)。profile ok_mean_lt_0.1=true・ok_max_lt_1.0=true(1秒OK)。check_fixes applied 14/14・回帰0・open 6。",
+ "leak_check": "milk_ok=True の町（最初の2軒に乳店あり）では gen0050 とバイト同一（cow_target が同じ8を返す。seed14 vs starter で$161585一致を実証）。milk_ok=False の町でのみ d8+ の牛が 8→6 に変わる＝意図した行動差（潜在ではなく大半の町で発火する型変更）。",
+ "mechanisms": [
+  {
+   "name": "store_conditional_cow_count",
+   "since": "gen0052",
+   "what": "牛の最終目標頭数を『最初の2軒(d6までに開示)に乳店が居るか』(milk_ok)で 8/6 に条件付ける。羊が既に yarn で条件付けられている(sheep_target)のに牛だけ無条件8頭という非対称を消す。d0-7の牛ランプ(0→4→6)は不変で、削るのは milk_ok=False の町の7・8頭目のみ。",
+   "constants": {"cow_high": 8, "cow_low": 6, "milk_lookahead": 2, "milk_shops": "PIZZA/ICE_CREAM/SMOOTHIE"},
+   "origin": "observed",
+   "ablation": "records/eval_gen0050.json（この機構を外した版＝親gen0050。常に8頭。王者 gen0048 との差は FIX0019/0020 のみ）",
+   "why": "王者系譜6seedの実測で乳258個を固定生産、実現単価は乳店の早さで$4(乳店0)〜$197(乳店d3)と~50倍振れ、床値で148-246個ダンプしていた。店は3日1軒開示で牛を積むd7-8時点で見えるのは2軒だが、その2軒に乳店が居るかは6seedを完全分離した(seed4200=$197のみmilk_ok=True)。上位も牛6/8/9を乳店0/1/2+で条件付ける(shared/top_meta/LATEST.md §7.2)。CLOSED『牛8頭が局所最適』は町を無視した固定頭数の結論で別物。"
+  }
+ ],
+ "mechanisms_doc": "gen0050 から継承した全機構（carrot_layer2_reclass・fast_carrot_rotation＋FIX0019/0020 の carrot 終盤清算・funded_wool_expansion・feed_buffer_lookahead_on_expansion・expansion_hands_bump・market_budget_reconcile・beta_harvest_unlock_gate）は変更なし。store_conditional_cow_count（gen0052新規）を追加。FIX0008 は carrot 部分適用のため台帳 open のまま（本世代は carrot を触らない）。",
+ "candidate_sha256": "bb23d5ebaf212da0f2efe98661cc2a82fa657d4b0c64f2f969c2402fb2675336",
+ "notes": "親は gen0050（=王者 gen0048 + FIX0019/0020 の bugfix-superset。check_fixes applied 14/14）。gen0048 直下に載せると FIX0019/0020 が回帰する（非昇格 gen0050 にしか無い＝gen0023-fix2 の伝播トラップ）ため gen0050 を親にした。eval baseline は LB を反映する王者 records/eval_gen0048.json。de-confound のため gen0051(FIX0020+Stage B・独立系統・eval pending)の上には載せていない。eval は Supervisor がキューに積む（本世代からは submit/approve/commit しない）。Codex レビューは eval 後・昇格判定前に実施（現状 review オブジェクト無し＝preflight は promote を拒否する。measure 提出なら rating_delta≥-100 を確認）。candidate_sha256 は現 main.py の値。最大のリスク=牛削減で相手の乳が高く売れて opp_final が上がる(principle 3)＝margin_delta で確定させる（乳店0-1の町は相手258個だけでも床なので相手収入は上がらないと予想）。"
+}

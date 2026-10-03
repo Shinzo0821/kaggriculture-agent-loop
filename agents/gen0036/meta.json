@@ -1,0 +1,60 @@
+{
+ "gen": "gen0036",
+ "parent": "gen0034",
+ "exp": "EXP0036",
+ "date": "2026-09-06",
+ "track": "掃除の世代 — Codex が gen0034 で出した major 2 件（ゾーン境界・幽霊予約）を直す",
+ "hypothesis": "gen0034（75 タイル）の昇格前レビューで codex が出した major 2 件は、どちらも**土地を 3 クアドラントにしたことで顕在化／再発した労働の穴**であり、資金に直結する。(1) ゾーンの重み分割がクアドラント境界で切れないため NE の末尾と SW の先頭が同じゾーンになり、1 人の hand が最遠 14 歩の非連続領域を担当していた（2 クアドラントでは NW→NE の 1 箇所だけで済んでいた）。(2) シェッドへ**移動中**の hand が ZWHEAT/ZFERT の在庫を予約するため、既にシェッド上にいる hand が実在庫を積めない。**これは gen0023 の codex fix2 で一度直したのに、gen0023 が非昇格でgen0024 の親が gen0022 だったため王者系統に伝わらなかった回帰**。",
+ "source": "agents/gen0034/meta.json の review（codex gpt-5.6-sol/high）／ state/HANDOFF.md の繰越項目",
+ "changes": [
+  "ゾーンの重み分割をクアドラントの中で閉じた。ソート順 `zone_order` はそのまま。ソート済み items を隣接する同じクアドラントの区間 `groups` にまとめ、重み比の最大剰余法でゾーン本数を配り、各 group の中で従来と同じ累積規則で切る。`n_zones < len(groups)` の時は従来の通し分割に落とす（原理的に境界を守れないため）。",
+  "ZWHEAT / ZFERT の在庫予約を `if (ux, uy) == (x, y):` で囲んだ（gen0023 の codex fix2 の再適用）。",
+  "最大剰余法の削減ループで、削れる group（share > 1）だけから選ぶようにした（codex の 2 回目のレビューで見つかった P1。下の notes を参照）。"
+ ],
+ "smoke": "vs rayk_c95 s42/s7/s100 で両者 DONE。noop 0・unfed 0 日・uncared 0 日。micro_audit: inplace_share 0.410-0.411 ／ tile_revisit_share 0.0121-0.0123（目標 0.02 を満たす）／ tile_util 0.688-0.698 ／ **move% 0.461-0.468（親 gen0034 は 0.49-0.51）** ／ 3歩以上 0.133-0.137。ゾーン検証（実リプレイ sm34_42 の d11/d15/d21 で分割規則を再現）: **クアドラントをまたぐゾーン 6 個 → 0 個 ／ ゾーン内最遠距離 18 → 8**。profile mean 0.20 ms。static_check OK。",
+ "status": "GATE_PASSED_50",
+ "notes": "24 シード（基準 = 親 gen0034）: マージン +$2,039 [+1,252, +2,827] ／ 強帯 +$1,728 [+1,099, +2,356] ／ 自分の資金 +$954 [−844, +2,752] ／ エラー 0 ／ gate.pass True。**codex の 2 回目のレビューで、最大剰余法の削減ループに P1 が見つかった**: 「最低 1 本」で底上げした小さい group を選ぶと `share[k] <= 1` で break し、`sum(share) > n_zones` のまま抜ける。そのとき zone 番号が範囲外になり `zone_animals[h]` が IndexError → 最外層の except に落ちて**そのターンの全 hand が PASS** になる（エラーとして表に出ない静かな障害）。group 数 1-4 × 重み 1-39 × n_zones を全数検査したところ **修正前は 866,308 組で不変条件が破れ、修正後は 0 組**。実戦分布では発火しておらず、修正前後で 3 シードの最終資金がビット一致した（[57185,99623] / [56078,81117] / [66003,111699]）ので、24 シードの数値はそのまま有効。\n\n**50 シード（1,100 戦・基準 = 王者 gen0031）: gate.pass = True。** マージン +$9,159 [+7,586, +10,731] ／ 強帯マージン +$5,100 [+3,108, +7,093] ／ 自分の資金 +$8,731 [+6,774, +10,688] ／ 強帯での自分の資金 +$4,756 [+2,432, +7,079] ／ slope +1,098（強帯 +522）／ rating Δ 0.0 ／ エラー 0。プール平均資金 $74,274 → $83,005（強帯 $63,128 → $67,884）。\n\n**`too_good` フラグ**（money_delta_paired $8,731 > 閾値 $8,000）が立ったので、`ops/NIGHTLY.md` 手順 4 の 3 点を実施した:\n(1) **シードベースを 1000 → 5000 に変えて王者ともども測り直した**（`records/eval_gen0031_sb5000.json` / `records/eval_gen0036_sb5000.json`、各 24 シード）。結果は **マージン +$11,866 [+9,853, +13,878] ／ 強帯 +$9,025 [+6,634, +11,416] ／ 自分の資金 +$7,305 [+3,781, +10,830]、too_good なし、gate.pass True** で、**別シードで再現するどころか大きく出た**。測り方の事故ではない。\n(2) `audit_replay` を 3 シードで実施 → unfed 0 日・uncared 0 日。\n(3) Codex レビュー 2 往復 → GO（上の review）。",
+ "mechanisms": [
+  {
+   "name": "zone_quadrant_closed",
+   "since": "gen0036",
+   "what": "ゾーンの重み分割をクアドラントの中で閉じる（クアドラント間に重み比でゾーン本数を配る）",
+   "constants": {
+    "allocation": "最大剰余法（重み比）",
+    "fallback": "n_zones < クアドラント数なら従来の通し分割"
+   },
+   "origin": "derived",
+   "ablation": "records/eval_gen0034_s24.json（この機構を外した版＝親）",
+   "why": "1 ゾーンは 1 クアドラントに閉じないと、ゾーン内の最遠距離が『帯幅 + 行数 − 1』に収まらない（実測 18 歩）"
+  },
+  {
+   "name": "shed_reservation_on_arrival",
+   "since": "gen0023（gen0036 で再適用）",
+   "what": "シェッド在庫の予約は、今ターン実際にシェッド上で PICKUP する hand だけが行う",
+   "constants": {},
+   "origin": "derived",
+   "ablation": "records/eval_gen0034_s24.json",
+   "why": "移動中の予約は次ターンに持ち越されず幽霊予約になり、シェッド上の hand が実在庫を積めない"
+  }
+ ],
+ "mechanisms_doc": "この配列は親 gen0034 からの**差分だけ**。全機構の台帳は agents/gen0026/meta.json。",
+ "review": {
+  "date": "2026-09-05",
+  "date_tz": "UTC（preflight は UTC の当日と比較する。他の日付は JST）",
+  "reviewer": "codex",
+  "model": "gpt-5.6-sol / reasoning high",
+  "candidate_sha256": "e40a638f7cc34fe96308a856ab25386e0aa9a8e3c296708cc461c7c7e8a0cc36",
+  "checklist": "knowledge/REVIEW_CHECKLIST.md",
+  "diff_range": "agents/gen0034/main.py..agents/gen0036/main.py",
+  "findings": [
+   {
+    "severity": "fatal",
+    "what": "最大剰余法の削減ループが、削れない group（share == 1）を選んで break し、`sum(share) > n_zones` のまま抜ける。zone 番号が範囲外になり zone_animals[h] が IndexError → 最外層の except でそのターンの全 hand が PASS になる（エラーとして表に出ない静かな障害）。全数検査で修正前 866,308 組・修正後 0 組",
+    "resolution": "fixed"
+   }
+  ],
+  "blocking_resolved": true,
+  "note": "2 往復のレビュー。1 回目で P1 を 1 件（上の fatal。当時は P1 表記）、2 回目（修正後）は **GO・新規指摘なし**。codex が『問題なし』と確認した項目: ゾーン分割の不変条件（全タイル割当・番号範囲・クアドラント非共有・空ゾーンの下流安全性）／ 削減ループの停止性と `cands` が空にならない論証／ 追加ループの停止性と空ゾーンを増やさないこと／ `groups` の連続性（zone_order の第 1 キーが q）／ 幽霊予約修正の副作用（エンジン側も PICKUP を順次処理し `n = min(n, available)` なので over-subscription は移動の無駄で済む。kaggriculture.py:358）／ 1 ターン 1 秒（追加処理は O(75)）。gen0034 から繰り越した minor 2 件（最終ターンの肥料 1 個・DAILY_TILE_OPS の説明の厳密さ）は未対応。 なお 50 シードで too_good が立ったため、シードベース 5000 での再評価も実施して再現を確認した。"
+ },
+ "candidate_sha256": "e40a638f7cc34fe96308a856ab25386e0aa9a8e3c296708cc461c7c7e8a0cc36"
+}

@@ -1,0 +1,65 @@
+{
+ "gen": "gen0034",
+ "parent": "gen0033",
+ "exp": "EXP0034",
+ "date": "2026-09-06",
+ "track": "75 タイルでの訪問完了（gen0032 の機構を、労働が制約になる盤面で測り直す）",
+ "hypothesis": "gen0032（訪問完了）は 50 タイルでは検出不能だった（50 シードでマージン −$1,087 [−2,244, +69]）。理由は『浮いた約 750 unit-hour を吸う仕事が農場に無かった』こと。**土地を 75 タイルにすると労働が制約側に回る**（gen0033 の実測: move% 55-61%、最終 WATER が毎日 h23、遊休種 14-21）。同じ機構が、労働が効く盤面では利くはず。これは gen0032 の再提案ではなく、**gen0032 の帰無結果に対する条件つきの再実験**。",
+ "source": "knowledge/experiments/EXP0032_visit-completion.md ／ knowledge/analysis/2026-09-06_layer-sweep-root-cause.md",
+ "changes": [
+  "gen0032 の `DAILY_TILE_OPS` / `VISIT_LAYER` / `LOSS_PRIS` / `visit_ok` と `eval_todos` のキー `(lay, crit, d, eff)` を gen0033 に移植（codex レビュー修正後の版）。gen0033 との差分はこれだけ。"
+ ],
+ "smoke": "vs rayk_c95 s42/s7/s100 で両者 DONE。noop 0・unfed 0 日・uncared 0 日。micro_audit: inplace_share 0.419-0.426（親 gen0033 は 0.295）／ tile_revisit_share 0.013-0.017（親 0.163、目標 0.02 を満たす）／ tile_util 0.682-0.689 ／ move% 0.49-0.51。profile mean 0.17 ms / max 0.35 ms（codex 再計測で最大 2.53 ms）。static_check OK。",
+ "status": "GATE_PASSED_50",
+ "notes": "**50 シード（1,100 戦）で gate.pass = True。** 王者 gen0031 比: マージン +$7,438 [+5,845, +9,031] ／ 強帯マージン +$3,959 [+1,988, +5,929] ／ 自分の資金 +$6,849 [+4,885, +8,812] ／ 強帯での自分の資金 +$3,267 [+776, +5,758] ／ slope +788（強帯 +346）／ rating Δ 0.0 ／ エラー 0 ／ too_good なし。プール平均資金 $74,274 → $81,123、強帯 $63,128 → $66,395。**gen0026(+$14,069) 以来の最大の前進で、自分の絶対資金も上がっている**（gen0031 は −$116 で削り一辺倒だった）。内訳は 土地 +$3,908 / 訪問完了 +$4,315（どちらも 24 シードの対応付き）。",
+ "mechanisms": [
+  {
+   "name": "visit_completion",
+   "since": "gen0032（gen0034 で再適用）",
+   "what": "立っているタイル（d==0）の日課仕事を層 1 に上げ、歩き出す前にその訪問を終わらせる",
+   "constants": {
+    "DAILY_TILE_OPS": "FEED/CARE/WATER/HARVEST/COLLECT_FERTILIZER/FERTILIZE",
+    "VISIT_LAYER": 1,
+    "LOSS_PRIS": "0.0（緊急給餌）/ 1.0（枯死防止 WATER）"
+   },
+   "origin": "derived",
+   "ablation": "records/eval_gen0033_s24.json（この機構だけを外した版＝親）",
+   "why": "層は仕事の種類だけで決まるので、同じタイルの 2 つの仕事の間で必ず歩き出す。詳細は EXP0032"
+  }
+ ],
+ "mechanisms_doc": "この配列は親からの**差分だけ**。全機構の台帳は agents/gen0026/meta.json。",
+ "review": {
+  "date": "2026-09-05",
+  "reviewer": "codex",
+  "model": "gpt-5.6-sol / reasoning high",
+  "candidate_sha256": "db722421aab43c1599b9202860679511b20bf6a91eb0a26595243ac7b5ad3ec7",
+  "checklist": "knowledge/REVIEW_CHECKLIST.md",
+  "diff_range": "agents/gen0031/main.py..agents/gen0034/main.py",
+  "findings": [
+   {
+    "severity": "major",
+    "what": "ゾーンの重み分割がクアドラント境界で切れないため、**NE の末尾と SW の先頭が同じゾーン**になる。実測（sm34_42 d11）で zone 9 が NE(9,3),(9,4) + SW(0,5)..(0,8) の最遠 14 歩。3 クアドラントで初めて顕在化する（2 クアドラントでは NW→NE の 1 箇所だけだった）。**この世代の土地変更が生んだ非効率**だが、資金は既に大幅に正なので取りこぼしであって退行ではない",
+    "resolution": "deferred"
+   },
+   {
+    "severity": "major",
+    "what": "シェッドへ**移動中**の hand が ZWHEAT / ZFERT の在庫を予約するため、既にシェッド上にいる後続 hand が実在庫を積めない（幽霊予約）。**gen0023 の codex fix2 で一度直したが、gen0023 が非昇格で gen0024 の親が gen0022 だったため王者系統に伝わっていなかった回帰**（state/HANDOFF.md の繰越項目そのもの）",
+    "resolution": "deferred"
+   },
+   {
+    "severity": "minor",
+    "what": "最終実行ターンに COLLECT_FERTILIZER を出して、換金できない肥料 1 個が手元に残る（3 スモークとも）。主産物の取りこぼしは無し",
+    "resolution": "deferred"
+   },
+   {
+    "severity": "minor",
+    "what": "DAILY_TILE_OPS の「daily reset から機械的に決まる」という説明は厳密でない（HARVEST の収穫物は日次リセットされず、FERTILIZE は day+2 まで持続する）。集合そのものは局所性・期限・再訪コストの観点で妥当",
+    "resolution": "deferred"
+   }
+  ],
+  "blocking_resolved": true,
+  "note": "codex 判定は**条件付き GO**。P0 は無し。**major 2 件はどちらも「静かな非効率」で、REVIEW_CHECKLIST の deferred 該当**（即死級＝例外・制約違反ではない）。両方を直した gen0036 を同時に用意し、24 シードで測っている（基準 = gen0034）。codex が『問題なし』と確認した観点: 例外パス（全経路 dict）／ 1 ターン 1 秒（75 タイル・12 hands・12 動物の実戦で最大 2.53 ms、visit_ok の any() はユニットループ外で 1 ターン 1 回）／ 観測フォーマット（土地順 NW→NE→SW・価格 $1,000/$2,000・日時・市場処理順）／ 終盤清算（主産物は shed も手持ちも 0。visit_ok は最終日に無効なので DROP を奪わない）／ 定数の出所（IDEA_POLICY 禁止側に該当なし）。固有懸念の回答: (a) 資金は d11 h0 に購入し d11-12 の最低資金 $3,645 以上・動物 12 頭維持で EXP0020 の escape は再現せず。(b) SW が LOCKED の間は tile_at が \"LOCKED\" を返し PLANT todo も種購入も出ない（空振り無し）。(c) 枯死は親と同水準で gen0035 型の崖は無いが、last_water_hour=23・tile_util 0.68 で**余力はほぼ無い**（『崖の直前』）。",
+  "date_tz": "UTC。`ops/preflight_submit.py:212` は UTC の当日と比較するので、**review.date は UTC で書く**。このリポジトリの他の日付（meta.date / EXP の日付）は JST なので 1 日ずれて見えるが誤りではない。実際のレビュー時刻は 2026-09-06 04:2x JST = 2026-09-05 19:2x UTC。"
+ },
+ "candidate_sha256": "db722421aab43c1599b9202860679511b20bf6a91eb0a26595243ac7b5ad3ec7"
+}

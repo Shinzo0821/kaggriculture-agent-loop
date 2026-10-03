@@ -1,0 +1,16 @@
+{
+  "gen": "gen0021",
+  "parent": "gen0020",
+  "date": "2026-09-05",
+  "track": "gen0020 の over-reinvestment 破綻を是正（現金リザーブ + 土地2枚まで）",
+  "hypothesis": "gen0020 は メロンIPO proceeds を全額 追加拡張に投入して現金 buffer を $20 にし動物を escape させた(EXP0020)。全 discretionary buy(土地/動物/種)に現金リザーブ $400 を課し、土地を2枚(NE)までに抑えれば、proceeds が運転資金として残り動物 escape が止まって資金曲線が立ち上がる。",
+  "changes": [
+    "RESERVE=400 を新設。BUY_LAND/BUY_ANIMAL/BUY_SEED は RESERVE を残す額までしか買わない（feed 小麦の BUY_PRODUCT は維持最優先で例外）。",
+    "land_target を最大2(NE d6)に変更。SW(3枚目)は買わない → SW の2波メロン/イチゴ/小麦タイルは locked のまま自動スキップ。"
+  ],
+  "smoke": "vs gen0018 seed42/7/100 DONE、profile max 0.016s (<1s OK)。",
+  "result_summary": "vs gen0018: seed42 $29.8k(相手$48k)/ seed7 $42.9k($74k)/ seed100 $28.7k($42k)。gen0020($2.6-11k)比 4-5倍に改善し動物 escape は解消(COW8SHEEP4がd11-27安定)。ただし3戦とも gen0018 に敗北。",
+  "status": "IMPROVED_BUT_NOT_PROMOTED",
+  "remaining_gap": "chronic partial under-feeding(unfed 7-11/日)で milk/wool が絞られる。より本質的には、現在の labor 割当効率では2クアドラント拡張が gen0018 の集中1クアドラントに追いつかない（拡張の feed/water/hire コストが追加収益を上回る）。次レバー = 動物の適正数化 or labor 割当効率の改善。",
+  "eval_pending": "records/eval_gen0021.json (seeds 24, pool, baseline gen0018) — 数値は EXP0021 と STATUS に記載"
+}
